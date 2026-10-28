@@ -135,16 +135,23 @@ describe('the frame', () => {
     // a visitor: no portfolio to show
     expect(links(host).map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
       [en.products, '/products'],
+      [en.leaderboard, '/leaderboard'],
       [en.invest, '/invest'],
       [en.analytics, '/analytics/stocks'],
     ]);
     // no Resources item (Thom, Oct 6): the methodology is reached from Bearing's own side menu
     expect(host.querySelector('nav a[href="/analytics/methodology"]')).toBeNull();
     // the page a person is on is said, not only shown; a plan is under Invest
-    expect(links(host).map((a) => a.getAttribute('aria-current'))).toEqual([null, 'page', null]);
+    expect(links(host).map((a) => a.getAttribute('aria-current'))).toEqual([
+      null,
+      null,
+      'page',
+      null,
+    ]);
     // an order's page is under Portfolio, which someone signed out does not get (ROUTES-MATCH-NAV)
     location.pathname = '/portfolio/orders/some-order';
     expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
+      null,
       null,
       null,
       null,
@@ -154,16 +161,19 @@ describe('the frame', () => {
     expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
       null,
       null,
+      null,
       'page',
     ]);
     location.pathname = '/analytics/methodology';
     expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
       null,
       null,
+      null,
       'page',
     ]);
     location.pathname = '/invest/plan/abc';
     expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
+      null,
       null,
       'page',
       null,
@@ -174,6 +184,15 @@ describe('the frame', () => {
       'page',
       null,
       null,
+      null,
+    ]);
+    // the leaderboard is its own item, for everyone
+    location.pathname = '/leaderboard';
+    expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
+      null,
+      'page',
+      null,
+      null,
     ]);
     // someone signed in gets their portfolio, after Invest
     portStore.set(signedInPort(EMBEDDED));
@@ -181,6 +200,7 @@ describe('the frame', () => {
     const signedIn = await shell();
     expect(links(signedIn).map((a) => [a.textContent, a.getAttribute('aria-current')])).toEqual([
       [en.products, null],
+      [en.leaderboard, null],
       [en.invest, null],
       [en.portfolio, 'page'],
       [en.analytics, null],
@@ -196,6 +216,7 @@ describe('the frame', () => {
       expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
         null,
         null,
+        null,
         'page',
         null,
       ]);
@@ -204,6 +225,7 @@ describe('the frame', () => {
     const sheet = find(signedIn, '[data-ui="compact-nav-sheet"]');
     expect([...sheet.querySelectorAll(':scope > a')].map((a) => a.getAttribute('href'))).toEqual([
       '/products',
+      '/leaderboard',
       '/invest',
       '/portfolio',
       '/analytics/stocks',
@@ -789,7 +811,7 @@ describe('the language', () => {
     const host = await shell('pt');
     expect(find(host, 'a[href="#content"]').textContent).toBe(pt.skip);
     expect([...find(host, 'nav').querySelectorAll(':scope > a')].map((a) => a.textContent)).toEqual(
-      [pt.products, pt.invest, pt.analytics],
+      [pt.products, pt.leaderboard, pt.invest, pt.analytics],
     );
     expect(find(host, 'header a[href^="/sign-in"]').textContent).toBe(pt.signIn);
     expect(host.textContent).not.toMatch(/!/);

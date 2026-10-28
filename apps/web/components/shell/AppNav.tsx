@@ -23,6 +23,7 @@ import { ThemeToggle } from './ThemeToggle';
 //               switches no chain (gate CHAIN-AT-THE-PLAN): where a plan starts is chosen on /invest
 //
 //   Products    the shelf of shared portfolios (/products), and a portfolio's page under it
+//   Leaderboard every open vault on the chain ranked by what it made (/leaderboard), for everyone
 //
 // A page's first segment is the name of the item it is under (gate ROUTES-MATCH-NAV, Thom, Oct 14):
 // a vault's page, the older monitor and an order's page (/portfolio/orders/{id}) are under Portfolio.
@@ -39,6 +40,8 @@ import { ThemeToggle } from './ThemeToggle';
 /** The product's routes in the bar, his order; `signedIn` marks the one a visitor does not get. */
 const ROUTES = [
   { href: '/products', key: 'products', also: ['/products'] },
+  // every open vault on the chain, ranked by what it made, for everyone
+  { href: '/leaderboard', key: 'leaderboard', also: ['/leaderboard'] },
   { href: '/invest', key: 'invest', also: ['/invest'] },
   // the portfolio section's board (/portfolio); a vault's page, an order's and the monitor are under it
   { href: '/portfolio', key: 'portfolio', signedIn: true, also: ['/portfolio'] },
