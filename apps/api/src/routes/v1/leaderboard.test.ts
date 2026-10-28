@@ -379,8 +379,8 @@ describe('GET /v1/leaderboard with an event window (LEADERBOARD_SINCE)', () => {
     expect(rowAt(answer, boundary.address)).toBeDefined();
     expect(rowAt(answer, before.address)).toBeUndefined();
     expect(rowAt(answer, none.address)).toBeUndefined();
-    // every row listed made its first deposit in the window, so every row has a figure
-    expect(answer.vaults.every((row) => row.pnl !== null)).toBe(true);
+    // every row listed made a deposit in the app; one may still be unread (other files write vaults too)
+    expect(answer.vaults.filter((row) => row.noPnl === 'no_deposit_record')).toEqual([]);
     expect(answer.vaults.map((r) => r.rank)).toEqual(answer.vaults.map((_, i) => i + 1));
 
     // the same vaults without a window: all four, as before
