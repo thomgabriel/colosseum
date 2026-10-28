@@ -66,6 +66,11 @@ const BEARING_NAMES = new Set(
   'API USD USDC USDT USDY SOL TVL LP UTC US EUA KYC DEX CLMM DLMM CPMM NYSE'.split(' '),
 );
 /**
+ * The tickers the starters on /invest name, as a person types them ("I want SPY 50%, QQQ 30% and gold
+ * 20%"; Thom, Oct 28). Only there.
+ */
+const STARTER_TICKERS = new Set('SPY QQQ NVDA AAPL GOOGL META'.split(' '));
+/**
  * Bearing's labels that are not sentences: a chart's note under its title, an accessible name, the
  * "how" of a path, a tooltip, and the start of the verdict that the page completes. Rodrigo's
  * fragments, kept as he wrote them. Each is named: a new one has to be added here on purpose.
@@ -113,7 +118,11 @@ describe.each(LANGS)('the dictionary in %s', (lang) => {
     for (const { path, text } of all) {
       // "US$" is how Portuguese writes a dollar amount, and a sentence may start with one capital.
       // Bearing's pages name tokens, units, zones and venues as they are written (Rodrigo's words).
-      const named = path.startsWith('bearing.') ? BEARING_NAMES : new Set<string>();
+      const named = path.startsWith('bearing.')
+        ? BEARING_NAMES
+        : path.startsWith('goal.explore.starters[')
+          ? STARTER_TICKERS
+          : new Set<string>();
       const shouting = (text.replace(/US\$/g, '').match(/\p{Lu}{2,}/gu) ?? []).filter(
         (word) => word !== 'MOCK' && !named.has(word),
       );
@@ -134,14 +143,14 @@ describe.each(LANGS)('the dictionary in %s', (lang) => {
 
   it('ends every full sentence with a full stop or a question mark', () => {
     // A sentence: more than a dozen words, or more than one of them. A title, a label, the words
-    // that follow the MOCK plate and a goal as a person would type it are not sentences.
+    // that follow the MOCK plate and a goal as a person would type it (a starter too) are not sentences.
     const full = all.filter(
       ({ path, text }) =>
         (text.split(' ').length > 12 || /\. \p{L}/u.test(text)) &&
         !/[·…]/.test(text) &&
         !text.startsWith(':') &&
         !BEARING_FRAGMENTS.has(path) &&
-        !/^goal\.(examples|composer\.placeholder)/.test(path),
+        !/^goal\.(examples|composer\.placeholder|explore\.starters)/.test(path),
     );
     expect(full.length).toBeGreaterThan(50);
     for (const { path, text } of full) expect(text, path).toMatch(/[.?]$/);

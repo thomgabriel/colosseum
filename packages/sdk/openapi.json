@@ -933,7 +933,7 @@
                       },
                       "amountUsd": {
                         "type": "number",
-                        "minimum": 10,
+                        "minimum": 1,
                         "maximum": 1000000
                       },
                       "incomeTargetUsdMonthly": {
@@ -1168,7 +1168,7 @@
                         },
                         "amountUsd": {
                           "type": "number",
-                          "minimum": 10,
+                          "minimum": 1,
                           "maximum": 1000000
                         },
                         "incomeTargetUsdMonthly": {
@@ -1543,7 +1543,7 @@
                           "anyOf": [
                             {
                               "type": "number",
-                              "minimum": 10,
+                              "minimum": 1,
                               "maximum": 1000000
                             },
                             {
@@ -1997,7 +1997,7 @@
                             },
                             "amountUsd": {
                               "type": "number",
-                              "minimum": 10,
+                              "minimum": 1,
                               "maximum": 1000000
                             },
                             "horizonMonths": {
@@ -2595,7 +2595,7 @@
                       },
                       "amountUsd": {
                         "type": "number",
-                        "minimum": 10,
+                        "minimum": 1,
                         "maximum": 1000000
                       },
                       "horizonMonths": {
@@ -3111,7 +3111,7 @@
                             },
                             "amountUsd": {
                               "type": "number",
-                              "minimum": 10,
+                              "minimum": 1,
                               "maximum": 1000000
                             },
                             "horizonMonths": {
@@ -3814,7 +3814,7 @@
                                   },
                                   "amountUsd": {
                                     "type": "number",
-                                    "minimum": 10,
+                                    "minimum": 1,
                                     "maximum": 1000000
                                   },
                                   "horizonMonths": {
@@ -5014,7 +5014,7 @@
                       },
                       "amountUsd": {
                         "type": "number",
-                        "minimum": 10,
+                        "minimum": 1,
                         "maximum": 1000000
                       },
                       "horizonMonths": {
@@ -5289,7 +5289,7 @@
                             },
                             "amountUsd": {
                               "type": "number",
-                              "minimum": 10,
+                              "minimum": 1,
                               "maximum": 1000000
                             },
                             "horizonMonths": {
@@ -5992,7 +5992,7 @@
                                   },
                                   "amountUsd": {
                                     "type": "number",
-                                    "minimum": 10,
+                                    "minimum": 1,
                                     "maximum": 1000000
                                   },
                                   "horizonMonths": {
@@ -7215,7 +7215,7 @@
                             },
                             "amountUsd": {
                               "type": "number",
-                              "minimum": 10,
+                              "minimum": 1,
                               "maximum": 1000000
                             },
                             "horizonMonths": {
@@ -9992,7 +9992,7 @@
                   },
                   "amountUsd": {
                     "type": "number",
-                    "minimum": 10,
+                    "minimum": 1,
                     "maximum": 1000000
                   },
                   "horizonMonths": {
@@ -10734,7 +10734,7 @@
                                 },
                                 "amountUsd": {
                                   "type": "number",
-                                  "minimum": 10,
+                                  "minimum": 1,
                                   "maximum": 1000000
                                 },
                                 "horizonMonths": {
@@ -14370,7 +14370,7 @@
                               },
                               "amountUsd": {
                                 "type": "number",
-                                "minimum": 10,
+                                "minimum": 1,
                                 "maximum": 1000000
                               },
                               "horizonMonths": {
@@ -15302,7 +15302,7 @@
                       },
                       "amountUsd": {
                         "type": "number",
-                        "exclusiveMinimum": 0,
+                        "minimum": 1,
                         "maximum": 1000000
                       },
                       "maxSlippageBps": {
@@ -21615,7 +21615,7 @@
                                             },
                                             "amountUsd": {
                                               "type": "number",
-                                              "minimum": 10,
+                                              "minimum": 1,
                                               "maximum": 1000000
                                             },
                                             "horizonMonths": {
@@ -26080,7 +26080,7 @@
                                 },
                                 "amountUsd": {
                                   "type": "number",
-                                  "minimum": 10,
+                                  "minimum": 1,
                                   "maximum": 1000000
                                 },
                                 "incomeTargetUsdMonthly": {
@@ -26118,7 +26118,7 @@
                                   },
                                   "amountUsd": {
                                     "type": "number",
-                                    "minimum": 10,
+                                    "minimum": 1,
                                     "maximum": 1000000
                                   },
                                   "incomeTargetUsdMonthly": {
@@ -26721,7 +26721,7 @@
                               },
                               "amountUsd": {
                                 "type": "number",
-                                "minimum": 10,
+                                "minimum": 1,
                                 "maximum": 1000000
                               },
                               "incomeTargetUsdMonthly": {
@@ -26759,7 +26759,7 @@
                                 },
                                 "amountUsd": {
                                   "type": "number",
-                                  "minimum": 10,
+                                  "minimum": 1,
                                   "maximum": 1000000
                                 },
                                 "incomeTargetUsdMonthly": {
@@ -27197,7 +27197,7 @@
                                 },
                                 "amountUsd": {
                                   "type": "number",
-                                  "minimum": 10,
+                                  "minimum": 1,
                                   "maximum": 1000000
                                 },
                                 "incomeTargetUsdMonthly": {
@@ -27235,7 +27235,7 @@
                                   },
                                   "amountUsd": {
                                     "type": "number",
-                                    "minimum": 10,
+                                    "minimum": 1,
                                     "maximum": 1000000
                                   },
                                   "incomeTargetUsdMonthly": {

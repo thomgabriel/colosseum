@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as schemas from '@colosseum/schemas';
 import {
+  AcceptGoalMixRequest,
   AcceptVersionArgs,
   Address,
   ApproveArgs,
@@ -397,7 +398,7 @@ describe('vault schemas, v0 (DESIGN-VAULT 3.1 to 3.6)', () => {
 
   it('caps what a buy may ask for: its amount and its slippage', () => {
     const buy = { type: 'buy', owner: { solana: SOL }, amountUsd: 500, proposalId: 'p' };
-    expect(ORDER_LIMITS).toEqual({ maxAmountUsd: 1_000_000, maxSlippageBps: 300 });
+    expect(ORDER_LIMITS).toEqual({ minAmountUsd: 1, maxAmountUsd: 1_000_000, maxSlippageBps: 300 });
     // A withdrawal in dollars's cash step may pay at most this far over its sales' quotes, in bps
     // (gate WITHDRAW-DOLLARS): the same distance a trade may be built under its quote. Pinned here
     // as the caps are; it is not one of them, since no request asks for it.
@@ -407,6 +408,14 @@ describe('vault schemas, v0 (DESIGN-VAULT 3.1 to 3.6)', () => {
     expect(over.success).toBe(false);
     expect(over.error?.issues[0]?.message).toMatch(/1,000,000/);
     expect(IntentRequest.safeParse({ ...buy, amountUsd: 1e300 }).success).toBe(false);
+    // the floor (gate DEPOSIT-FLOOR): $1 is a deposit, a cent under it and nothing are not
+    expect(IntentRequest.safeParse({ ...buy, amountUsd: 1 }).success).toBe(true);
+    const under = IntentRequest.safeParse({ ...buy, amountUsd: 0.99 });
+    expect(under.success).toBe(false);
+    expect(under.error?.issues[0]?.message).toBe('one deposit is at least $1');
+    expect(IntentRequest.safeParse({ ...buy, amountUsd: 0 }).success).toBe(false);
+    const goalMix = AcceptGoalMixRequest.shape.amountUsd;
+    expect([goalMix.safeParse(1).success, goalMix.safeParse(0.99).success]).toEqual([true, false]);
     for (const ok of [0, 50, 300])
       expect(IntentRequest.safeParse({ ...buy, maxSlippageBps: ok }).success).toBe(true);
     for (const bad of [301, 10_000, -1, 0.5])
@@ -508,7 +517,9 @@ describe('vault schemas, v0 (DESIGN-VAULT 3.1 to 3.6)', () => {
       language: 'en',
     };
     expect(BasketSheet.safeParse(sheet).success).toBe(true);
-    expect(BasketSheet.safeParse({ ...sheet, amountUsd: 9 }).success).toBe(false);
+    // the floor is $1 (gate DEPOSIT-FLOOR; it was $10)
+    expect(BasketSheet.safeParse({ ...sheet, amountUsd: 1 }).success).toBe(true);
+    expect(BasketSheet.safeParse({ ...sheet, amountUsd: 0.99 }).success).toBe(false);
     expect(BasketSheet.safeParse({ ...sheet, horizonMonths: 481 }).success).toBe(false);
     expect(BasketSheet.safeParse({ ...sheet, themes: ['a', 'b', 'c', 'd'] }).success).toBe(false);
     expect(BasketSheet.safeParse({ ...sheet, country: 'Brazil' }).success).toBe(false);
@@ -1134,7 +1145,7 @@ describe('vault schemas, v0 (DESIGN-VAULT 3.1 to 3.6)', () => {
     // The parser's draft: every field of the sheet, each allowed to be null.
     const empty = Object.fromEntries(Object.keys(BasketSheet.shape).map((k) => [k, null]));
     expect(BasketSheetDraft.safeParse(empty).success).toBe(true);
-    expect(BasketSheetDraft.safeParse({ ...empty, amountUsd: 5 }).success).toBe(false);
+    expect(BasketSheetDraft.safeParse({ ...empty, amountUsd: 0.5 }).success).toBe(false);
     expect(Object.keys(BasketSheetDraft.shape)).toEqual(Object.keys(BasketSheet.shape));
     // A creator sends the chain and the weights; the server and the registry assign the rest.
     const publish = {

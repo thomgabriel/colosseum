@@ -1696,7 +1696,9 @@ describe('refusals', () => {
       [{ proposalId: '4b1c0f0e-3f8e-4d0e-9d2b-0d7a3a6b1c2d' }, 404, /no plan/],
       [{ proposalId: plans.robinhood }, 422, /no evm address, and this plan is on Robinhood Chain/],
       [{ proposalId: undefined, family: 'core' }, 404, /no shared portfolio with that slug/],
-      [{ amountUsd: 0.0001 }, 422, /less than one cent/],
+      // under the floor (gate DEPOSIT-FLOOR): the route's schema refuses it before anything is planned
+      [{ amountUsd: 0.0001 }, 400, /at least \$1/],
+      [{ amountUsd: 0.99 }, 400, /at least \$1/],
     ];
     for (const [change, status, error] of cases) {
       const res = await post(a, '/v1/orders', {

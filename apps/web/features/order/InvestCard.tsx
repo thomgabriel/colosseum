@@ -76,7 +76,7 @@ export type InvestCardProps = {
   chainName: string;
   /** The chain runs on the mock. */
   mock: boolean;
-  /** The amount in dollars, or null while what was typed is not one from $10 to $1,000,000. */
+  /** The amount in dollars, or null while what was typed is not one from $1 to $1,000,000. */
   amount: number | null;
   /** The wallet that signs, on this chain. */
   owner: string | null;

@@ -99,7 +99,13 @@ describe('the words of a goal', () => {
   });
 
   it('reads no amount outside what a plan takes, and nothing from words it does not know', () => {
-    expect(preRead('Grow $5 for a year', NOW)).toEqual({ goal: 'grow', horizonMonths: 12 });
+    // the floor is $1 (gate DEPOSIT-FLOOR): $5 is an amount, 50 cents is not
+    expect(preRead('Grow $5 for a year', NOW)).toEqual({
+      goal: 'grow',
+      amountUsd: 5,
+      horizonMonths: 12,
+    });
+    expect(preRead('Grow $0.50 for a year', NOW)).toEqual({ goal: 'grow', horizonMonths: 12 });
     expect(preRead('something for later', NOW)).toEqual({});
   });
 });

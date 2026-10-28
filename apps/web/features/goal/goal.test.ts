@@ -289,7 +289,7 @@ describe('the limits, checked against the shared schema', () => {
     const wrong = (over: Partial<SheetFields>) => checkSheet({ ...FIELDS, ...over }, 'solana');
     expect(wrong({ amount: '' })).toEqual({ errors: { amount: 'amountEmpty' }, sheet: null });
     expect(wrong({ amount: 'forty' }).errors).toEqual({ amount: 'amountNumber' });
-    expect(wrong({ amount: '9.99' }).errors).toEqual({ amount: 'amountLow' });
+    expect(wrong({ amount: '0.99' }).errors).toEqual({ amount: 'amountLow' });
     expect(wrong({ amount: '1,000,001' }).errors).toEqual({ amount: 'amountHigh' });
     expect(wrong({ goal: '' }).errors).toEqual({ goal: 'goal' });
     expect(wrong({ risk: '' }).errors).toEqual({ risk: 'risk' });
@@ -309,9 +309,15 @@ describe('the limits, checked against the shared schema', () => {
   it('holds the limits to the bounds of the schema itself', () => {
     const fits = (over: Partial<SheetFields>) =>
       checkSheet({ ...FIELDS, ...over }, 'solana').sheet !== null;
-    expect([fits({ amount: '10' }), fits({ amount: '1,000,000' })]).toEqual([true, true]);
+    // the floor is $1 (gate DEPOSIT-FLOOR, Oct 28; it was $10)
+    expect([fits({ amount: '1' }), fits({ amount: '5' }), fits({ amount: '1,000,000' })]).toEqual([
+      true,
+      true,
+      true,
+    ]);
     expect([fits({ horizon: '1' }), fits({ horizon: '480' })]).toEqual([true, true]);
-    expect(BasketSheet.shape.amountUsd.safeParse(9.99).success).toBe(false);
+    expect(BasketSheet.shape.amountUsd.safeParse(0.99).success).toBe(false);
+    expect(BasketSheet.shape.amountUsd.safeParse(0).success).toBe(false);
     expect(BasketSheet.shape.amountUsd.safeParse(1_000_000.01).success).toBe(false);
     expect(BasketSheet.shape.horizonMonths.safeParse(481).success).toBe(false);
   });

@@ -273,8 +273,8 @@ export const pt: Dictionary = {
       placeholder: 'Descreva o que quer explorar…',
       starters: [
         'Explorar ações de tecnologia',
-        'Criar uma estratégia de renda',
-        'Proteger minhas economias',
+        'Quero NVDA 20%, AAPL 20%, GOOGL 20%, META 20% e ouro 20%',
+        'Quero SPY 50%, QQQ 30% e ouro 20%',
       ],
       local: 'Este navegador · conversa privada de rascunho',
       signIn: 'Entre para explorar uma estratégia privada.',
@@ -399,7 +399,7 @@ export const pt: Dictionary = {
       countryFromBrowser:
         'Tirado do idioma deste navegador. Pode mudar ou deixar em branco: o plano não usa esse dado.',
       holdings: 'O plano preenche lacunas e evita repetir o que você já tem.',
-      amount: 'Com quanto o plano começa, de US$ 10 a US$ 1.000.000.',
+      amount: 'Com quanto o plano começa, de US$ 1 a US$ 1.000.000.',
       notFound: 'Não encontrei no seu objetivo: preencha.',
       assumed: 'Seu objetivo não disse isto: eu assumi. Mude se estiver errado.',
     },
@@ -420,7 +420,7 @@ export const pt: Dictionary = {
       goal: 'Escolha para que é o dinheiro.',
       amountEmpty: 'Informe o valor em dólares.',
       amountNumber: 'Informe o valor como número, por exemplo 40000.',
-      amountLow: 'Informe pelo menos US$ 10.',
+      amountLow: 'Informe pelo menos US$ 1.',
       amountHigh: 'Informe US$ 1.000.000 ou menos.',
       horizon: 'Informe o prazo em meses inteiros, de 1 a 480.',
       risk: 'Escolha quanto risco você aceita.',
@@ -709,7 +709,7 @@ export const pt: Dictionary = {
       title: 'Adicione dinheiro ao seu cofre',
       lead: (chain: string) =>
         `Adicione a este cofre na ${chain} seguindo sua estratégia atual. Revise o aporte e seus passos antes de assinar na carteira.`,
-      amountHint: 'De US$ 10 a US$ 1.000.000.',
+      amountHint: 'De US$ 1 a US$ 1.000.000.',
       missing:
         'Não encontro este cofre entre os seus. Abra seu portfólio e escolha o cofre por lá.',
       back: 'Voltar ao seu portfólio',
@@ -1051,8 +1051,7 @@ export const pt: Dictionary = {
       `O valor inteiro vai para um cofre de onde só você pode sacar, em ${chain}, e então para cada ativo do plano, um passo de cada vez.`,
     amount: {
       label: 'Valor (dólares)',
-      hint: (planned: string) =>
-        `Seu plano foi montado para ${planned}. De US$ 10 a US$ 1.000.000.`,
+      hint: (planned: string) => `Seu plano foi montado para ${planned}. De US$ 1 a US$ 1.000.000.`,
       other: (planned: string) =>
         `Seu plano foi montado para ${planned}, e os limites dele foram calculados para esse valor. Para depositar outro valor, descreva seu objetivo na conversa e use o novo rascunho nesse valor.`,
     },
@@ -1108,7 +1107,7 @@ export const pt: Dictionary = {
       },
     },
     blocked: {
-      amount: 'Digite um valor de US$ 10 a US$ 1.000.000 para continuar.',
+      amount: 'Digite um valor de US$ 1 a US$ 1.000.000 para continuar.',
       funding: 'Sua carteira precisa do que falta antes de você continuar.',
       trust: 'Aceite o aviso para continuar.',
       wallet: 'Nenhuma carteira sua está conectada nesta rede.',
@@ -1331,7 +1330,7 @@ export const pt: Dictionary = {
       title: 'Depositar e seguir',
       lead: (chain: string) =>
         `Um cofre seu na ${chain} segue este portfólio, na versão mostrada, com o seguir automático desativado. Nada é depositado até você revisar cada passo e assinar.`,
-      amountHint: 'Em dólares, a partir de US$ 10.',
+      amountHint: 'Em dólares, a partir de US$ 1.',
       blocked: {
         terms: 'Não consegui ler este portfólio, então ainda não há o que seguir.',
         missing: 'A rede não tem este portfólio, então não dá para segui-lo.',
@@ -2589,9 +2588,7 @@ export const pt: Dictionary = {
           : goal
             ? 'O objetivo é calculado a partir dos ativos que você escolheu.'
             : 'O risco é calculado a partir dos ativos que você escolheu.',
-      limits: 'De US$ 10 a US$ 1.000.000.',
-      quick: 'Valores rápidos',
-      quickOne: (amount: string) => `Depositar ${amount}`,
+      limits: 'De US$ 1 a US$ 1.000.000.',
       mix: 'O que seu cofre vai guardar',
       edited: 'Editada à mão',
       share: 'Parte',
@@ -2636,7 +2633,7 @@ export const pt: Dictionary = {
       },
       errors: {
         notAmount: 'Digite um valor em dólares, como 250 ou 250,50.',
-        belowMin: 'O mínimo para depositar é US$ 10.',
+        belowMin: 'O mínimo para depositar é US$ 1.',
         aboveMax: 'O máximo em um depósito é US$ 1.000.000. Digite menos.',
       },
     },

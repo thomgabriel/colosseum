@@ -113,6 +113,25 @@ describe('private strategy exploration for a new goal', () => {
       expect(buttons.map((button) => button.textContent)).toEqual(
         dictionary(lang).goal.explore.starters,
       );
+      // Thom, Oct 28: technology first, then two vaults that state their shares, which come to 100
+      // (apps/api relaxed-goal-agent.test.ts reads them on Solana devnet and Robinhood Chain); no
+      // income or protect starter, whose drafts were poor
+      const [first, ...stated] = buttons.map((button) => button.textContent ?? '');
+      expect(first).toBe(
+        lang === 'en' ? 'Explore technology stocks' : 'Explorar ações de tecnologia',
+      );
+      expect(stated).toHaveLength(2);
+      for (const words of stated) {
+        const shares = [...words.matchAll(/(\d+)%/g)].map((m) => Number(m[1]));
+        expect(
+          shares.reduce((n, x) => n + x, 0),
+          words,
+        ).toBe(100);
+        expect(words).toMatch(lang === 'en' ? /\bgold\b/ : /\bouro\b/);
+      }
+      expect(buttons.map((button) => button.textContent).join(' ')).not.toMatch(
+        /income|protect|renda|proteger/i,
+      );
       const composer = find<HTMLTextAreaElement>(host, 'textarea');
       for (const button of buttons) {
         expect(button.type).toBe('button');

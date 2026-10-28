@@ -1113,7 +1113,7 @@ describe('POST /v1/baskets/intake', () => {
       { text: 'hi' },
       { text: 'x'.repeat(2001) },
       { text: 'Grow $5,000', answers: { risk: 'extreme' } },
-      { text: 'Grow $5,000', answers: { amountUsd: 5 } },
+      { text: 'Grow $5,000', answers: { amountUsd: 0.5 } },
       { text: 'Grow $5,000', answers: { weights: { nvda: 5000 } } },
       { text: 'Grow $5,000', language: 'fr' },
       { text: 'Grow $5,000', followUps: Array.from({ length: 200 }, () => 'another detail') },

@@ -1,8 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { deploymentAssets, EvmDeploymentRecord } from '@colosseum/chain-evm/vault';
+import {
+  SolanaDeploymentRecord,
+  deploymentAssets as solanaDeploymentAssets,
+} from '@colosseum/chain-solana/vault';
 import type { BasketAsset, VaultAgentReply, VaultAgentSource } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
+import { DEPLOYMENTS_DIR } from '../deployments';
 import { createModelQuota, type ModelQuota } from '../model-quota';
 import { goalFit } from './mix';
 import { createRelaxedGoalAgent, splitShares } from './relaxed-goal-agent';
@@ -692,7 +697,7 @@ describe('relaxed intake: the projection starts from the person’s own figures'
   });
   it('holds the amount to what the deposit step accepts', async () => {
     none(await sheet({ amount: 5_000_000 }, 'I have $5,000,000 to grow'));
-    none(await sheet({ amount: 5 }, 'I have $5 to grow'));
+    none(await sheet({ amount: 0.5 }, 'I have $0.50 to grow'));
   });
   it('drops a date that is past, unreal, out of reach or not the person’s', async () => {
     for (const need_by of ['1999-01-01', '2026-02-31x', '9999-01-01', '2400-06-01', '2031-01-01'])
@@ -1418,5 +1423,89 @@ describe('goalFit, the rule goal/accept and the preview share', () => {
     expect(goalFit(of('USDC'), 'income')).toBe('fits');
     expect(goalFit(of('TSLAx'), 'grow')).toBe('fits');
     expect(goalFit(of('SOL'), null)).toBe('fits');
+  });
+});
+
+describe('the starters under “What should your vault do?” on /invest (Thom, Oct 28)', () => {
+  // The words of the two chips that state shares, as apps/web/i18n/en.ts and pt.ts write them. Each
+  // must be read as the shares it says on every shelf a demo runs on, so the draft is predictable.
+  const STARTERS = [
+    {
+      en: 'I want NVDA 20%, AAPL 20%, GOOGL 20%, META 20% and gold 20%',
+      pt: 'Quero NVDA 20%, AAPL 20%, GOOGL 20%, META 20% e ouro 20%',
+      shares: { NVDA: 2000, AAPL: 2000, GOOGL: 2000, META: 2000, gold: 2000 },
+    },
+    {
+      en: 'I want SPY 50%, QQQ 30% and gold 20%',
+      pt: 'Quero SPY 50%, QQQ 30% e ouro 20%',
+      shares: { SPY: 5000, QQQ: 3000, gold: 2000 },
+    },
+  ];
+  const record = (file: string) => JSON.parse(readFileSync(join(DEPLOYMENTS_DIR, file), 'utf8'));
+  const shelves = {
+    'Solana devnet': solanaDeploymentAssets(
+      SolanaDeploymentRecord.parse(record('solana-devnet.json')),
+    ),
+    'Robinhood Chain testnet': deploymentAssets(
+      EvmDeploymentRecord.parse(record('robinhood-testnet.json')),
+    ),
+    'Robinhood Chain mainnet': deploymentAssets(
+      EvmDeploymentRecord.parse(record('robinhood-mainnet.json')),
+    ),
+  };
+  /** The asset a starter's name stands for on a shelf: the gold the shelf lists, or the ticker's. */
+  const idOf = (assets: BasketAsset[], name: string) => {
+    const found = assets.filter((a) =>
+      name === 'gold' ? a.cls === 'gold' : a.underlying.toUpperCase() === name,
+    );
+    expect(found, name).toHaveLength(1);
+    return found[0]?.id;
+  };
+
+  for (const [shelf, assets] of Object.entries(shelves))
+    it(`reads each starter's shares exactly on ${shelf}, in English and in Portuguese`, () => {
+      for (const starter of STARTERS) {
+        const want = Object.entries(starter.shares).map(
+          ([name, bps]) => `${idOf(assets, name)} exact ${bps}`,
+        );
+        for (const language of ['en', 'pt'] as const) {
+          const read = personShares(
+            [{ who: 'person', text: starter[language] }],
+            language,
+            assets,
+            new Map(),
+          );
+          expect(
+            read.standing.map((s) => `${s.assetIds.join('+')} ${s.kind} ${s.bps}`),
+            starter[language],
+          ).toEqual(want);
+          expect(read.unread, starter[language]).toEqual([]);
+        }
+      }
+    });
+
+  it('drafts the vault each starter says on Solana devnet, whatever share the model reports', async () => {
+    const assets = shelves['Solana devnet'];
+    const ctx = context({
+      assets,
+      evidence: assets.map((a) => source(`catalog:${a.id}`, { assetId: a.id })),
+    });
+    for (const starter of STARTERS) {
+      const ids = Object.keys(starter.shares).map((name) => idOf(assets, name) as string);
+      // the model picks the assets and gets the shares wrong: the server's reading of the words wins
+      const reply = await run(
+        { shape: 'pick', lines: ids.map((id) => line(id, 0.5)) },
+        starter.en,
+        ctx,
+      );
+      const bySymbol = Object.fromEntries(
+        Object.entries(starter.shares).map(([name, bps]) => [
+          assets.find((a) => a.id === idOf(assets, name))?.symbol,
+          bps,
+        ]),
+      );
+      expect(weights(reply), starter.en).toEqual(bySymbol);
+      expect(notes(reply)).toContain('The shares you gave are applied exactly.');
+    }
   });
 });

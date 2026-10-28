@@ -1,4 +1,4 @@
-import { BasketSheetDraft, type Language } from '@colosseum/schemas';
+import { BasketSheetDraft, type Language, ORDER_LIMITS } from '@colosseum/schemas';
 import type { ApiFetch } from '../account/person';
 import type { WordField } from './pre-read';
 
@@ -70,7 +70,11 @@ export function draftFromFirstReader(body: unknown): BasketSheetDraft | null {
     goal: GOAL_OF_PROFILE[String(read.profile)] ?? null,
     // Dollars it was told outright, never reais converted.
     amountUsd:
-      typeof capital === 'number' && capital >= 10 && capital <= 1_000_000 ? capital : null,
+      typeof capital === 'number' &&
+      capital >= ORDER_LIMITS.minAmountUsd &&
+      capital <= ORDER_LIMITS.maxAmountUsd
+        ? capital
+        : null,
     // With no date in the text it answers 36 months of its own: that is not what the person said.
     horizonMonths:
       typeof horizon === 'number' &&

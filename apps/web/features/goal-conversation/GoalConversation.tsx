@@ -679,7 +679,9 @@ export function GoalConversation({
           <ul
             data-ui="goal-starters"
             aria-label={t.goal.examples.label}
-            className={`flex flex-wrap gap-2 ${drafting ? '' : 'md:flex-nowrap'}`}
+            // they wrap at every width: two of them state their shares (Oct 28), and in one row the
+            // short one was squeezed to three lines beside them
+            className="flex flex-wrap gap-2"
           >
             {copy.starters.map((starter) => (
               <li key={starter}>

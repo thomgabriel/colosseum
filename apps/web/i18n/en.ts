@@ -360,7 +360,16 @@ export const en = {
       invitation: 'What should your vault do?',
       lead: 'Tell me your ideas, needs and limits. I’ll draft a vault with its sources and tradeoffs.',
       placeholder: 'Describe what you want to explore…',
-      starters: ['Explore technology stocks', 'Earn a monthly income', 'Protect my savings'],
+      /**
+       * Typed into the box by a press, never sent by it. The two after the first state their shares,
+       * so the draft is the vault they say on Solana devnet and on Robinhood Chain alike (Thom, Oct 28;
+       * apps/api `relaxed-goal-agent.test.ts` holds that both read so).
+       */
+      starters: [
+        'Explore technology stocks',
+        'I want NVDA 20%, AAPL 20%, GOOGL 20%, META 20% and gold 20%',
+        'I want SPY 50%, QQQ 30% and gold 20%',
+      ],
       local: 'A private draft, kept in this browser.',
       signIn: 'Sign in to start a vault.',
       readingAccount: 'Your account and chain must be ready before I can get a reply.',
@@ -498,7 +507,7 @@ export const en = {
       countryFromBrowser:
         'Taken from this browser’s language. You may change it or leave it empty: the plan doesn’t use it.',
       holdings: 'The plan fills gaps and avoids doubling up.',
-      amount: 'What this plan starts with, from $10 to $1,000,000.',
+      amount: 'What this plan starts with, from $1 to $1,000,000.',
       /** Before the hint of a field the reader left empty. */
       notFound: 'Not found in your goal: fill it in.',
       /** A field the goal did not say, filled with a starting value the person can change. */
@@ -520,7 +529,7 @@ export const en = {
       goal: 'Choose what the money is for.',
       amountEmpty: 'Enter the amount in dollars.',
       amountNumber: 'Enter the amount as a number, like 40000.',
-      amountLow: 'Enter at least $10.',
+      amountLow: 'Enter at least $1.',
       amountHigh: 'Enter $1,000,000 or less.',
       horizon: 'Enter the time frame in whole months, from 1 to 480.',
       risk: 'Choose how much risk you’re comfortable with.',
@@ -849,7 +858,7 @@ export const en = {
       title: 'Deposit into your vault',
       lead: (chain: string) =>
         `Deposit into this vault on ${chain} at its current targets. Review the deposit and its steps before your wallet signs.`,
-      amountHint: 'From $10 to $1,000,000.',
+      amountHint: 'From $1 to $1,000,000.',
       missing:
         'I can’t find this vault among yours. Open your portfolio, then choose the vault there.',
       back: 'Back to your portfolio',
@@ -1234,7 +1243,7 @@ export const en = {
       `The whole amount goes into a vault only you can withdraw from, on ${chain}, then into each asset of the plan, one step at a time.`,
     amount: {
       label: 'Amount (dollars)',
-      hint: (planned: string) => `Your plan was built for ${planned}. From $10 to $1,000,000.`,
+      hint: (planned: string) => `Your plan was built for ${planned}. From $1 to $1,000,000.`,
       /** Under an amount that is not the plan's: its limits were set in dollars at that amount. */
       other: (planned: string) =>
         `Your plan was built for ${planned}, and its limits were worked out at that amount. To deposit another amount, describe your goal in the conversation and use the new draft at that amount.`,
@@ -1291,7 +1300,7 @@ export const en = {
       },
     },
     blocked: {
-      amount: 'Enter an amount from $10 to $1,000,000 to continue.',
+      amount: 'Enter an amount from $1 to $1,000,000 to continue.',
       funding: 'Your wallet needs what is missing before you can continue.',
       trust: 'Accept the notice to continue.',
       wallet: 'No wallet of yours is signed in on this chain.',
@@ -1554,7 +1563,7 @@ export const en = {
       title: 'Deposit and follow',
       lead: (chain: string) =>
         `A vault of yours on ${chain} follows this portfolio, at the version shown, with auto-follow off. Nothing is deposited until you review every step and sign it.`,
-      amountHint: 'In dollars, at least $10.',
+      amountHint: 'In dollars, at least $1.',
       blocked: {
         terms: 'I couldn’t read this portfolio, so there is nothing to follow yet.',
         missing: 'The chain doesn’t hold this portfolio, so it can’t be followed.',
@@ -2928,9 +2937,7 @@ export const en = {
           : goal
             ? 'The goal is worked out from the holdings you chose.'
             : 'The risk is worked out from the holdings you chose.',
-      limits: 'From $10 to $1,000,000.',
-      quick: 'Quick amounts',
-      quickOne: (amount: string) => `Deposit ${amount}`,
+      limits: 'From $1 to $1,000,000.',
       mix: 'What your vault will hold',
       edited: 'Edited by hand',
       share: 'Share',
@@ -2976,7 +2983,7 @@ export const en = {
       },
       errors: {
         notAmount: 'Type an amount in dollars, such as 250 or 250.50.',
-        belowMin: 'The least you can deposit is $10.',
+        belowMin: 'The least you can deposit is $1.',
         aboveMax: 'The most in one deposit is $1,000,000. Type less.',
       },
     },

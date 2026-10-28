@@ -143,7 +143,7 @@ export function holdingConstraints(
 // projection is made from it.
 
 /** The least a plan's amount may be (`BasketSheet`, the deposit step's own floor). */
-export const PROJECTION_MIN_USD = 10;
+export const PROJECTION_MIN_USD = ORDER_LIMITS.minAmountUsd;
 /** No projection further out than this: a date past it is a misreading, not a plan. */
 export const PROJECTION_MAX_YEARS = 60;
 
