@@ -389,11 +389,14 @@ export function InvestCard({
   }, []);
 
   // Whether an order is being made now: the host says its quotes are on the way only then.
+  // An order is being made, or made and not read back yet: its quotes are on the way until then.
+  const [readOf, setReadOf] = useState<string | null>(null);
+  const quoting = placing || (made !== null && readOf !== made.orderId);
   const toldQuoting = useRef(onQuoting);
   toldQuoting.current = onQuoting;
   useEffect(() => {
-    toldQuoting.current?.(placing);
-  }, [placing]);
+    toldQuoting.current?.(quoting);
+  }, [quoting]);
 
   // No order on the card: the host's quotes go with it.
   const toldOrder = useRef(onOrder);
@@ -742,7 +745,10 @@ export function InvestCard({
           embed={{
             ...(onEnded ? { onEnded } : {}),
             ...(compact ? { compact: true } : {}),
-            ...(onOrder ? { onOrder } : {}),
+            onOrder: (order: OrderDetail) => {
+              setReadOf(order.id);
+              onOrder?.(order);
+            },
             ...(compact && foot ? { foot } : {}),
             blocked: [
               ...(trustHeld ? [t.buy.blocked.trust] : []),

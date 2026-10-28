@@ -193,6 +193,10 @@ function api(
     refuseStore?: boolean;
     /** The proposal holds SPYx, the asset the order's swap buys, in place of gold. */
     spy?: boolean;
+    /** Our server makes the order only once this is let through. */
+    holdOrders?: Promise<void>;
+    /** Our server answers a read of an order only once this is let through. */
+    holdReads?: Promise<void>;
   } = {},
 ) {
   const calls: Call[] = [];
@@ -255,6 +259,7 @@ function api(
       }
       if (path.startsWith('/v1/funding?')) return json(funding(o.funded ?? true));
       if (path === '/v1/orders' && method === 'POST') {
+        if (o.holdOrders) await o.holdOrders;
         const base = orderOn();
         const id = made === 0 ? base.id : `00000000-0000-4000-8000-00000000000${made}`;
         const order: OrderDetail = {
@@ -271,6 +276,7 @@ function api(
         return json(order);
       }
       if (path.startsWith('/v1/orders/') && method === 'GET' && !path.endsWith('/continue')) {
+        if (o.holdReads) await o.holdReads;
         const order = kept.get(path.slice('/v1/orders/'.length));
         return order ? json(order) : json({ error: 'not found' }, 404);
       }
@@ -543,6 +549,42 @@ describe('the deposit signed in place on /invest', () => {
     expect(find(facts, '[data-ui="exit-cost"]').textContent).toContain('0.07%');
     expect(find(facts, '[data-ui="exit-ceiling"]').textContent).toContain('$1,200.00');
     expect(find(facts, '[data-ui="exit-age"]').textContent).toMatch(/measured .* ago/);
+  });
+
+  it('says the pool price is on its way while the order is made, and the order’s quote takes its place', async () => {
+    const orders = gate();
+    api({ spy: true, holdOrders: orders.wait });
+    const host = await show();
+    await toSteps(host);
+    const facts = () => find(host, '[data-row="solana:spyx"] [data-ui="deposit-facts"]');
+    expect(find(facts(), '[data-ui="pool-later"]').textContent).toBe(
+      en.mix.deposit.facts.poolLater,
+    );
+    expect(facts().querySelector('[data-ui="pool-price"]')).toBeNull();
+    orders.open();
+    await settle();
+    await settle();
+    await settle();
+    expect(find(facts(), '[data-ui="pool-price"]').textContent).toContain('$600.00');
+    expect(facts().querySelector('[data-ui="pool-later"]')).toBeNull();
+  });
+
+  it('keeps saying the pool price is on its way while the order made is read, with no blank between', async () => {
+    const reads = gate();
+    const server = api({ spy: true, holdReads: reads.wait });
+    const host = await show();
+    await toSteps(host);
+    // made, and not read back yet: still on its way
+    expect(server.placed()).toHaveLength(1);
+    const facts = () => find(host, '[data-row="solana:spyx"] [data-ui="deposit-facts"]');
+    expect(find(facts(), '[data-ui="pool-later"]').textContent).toBe(
+      en.mix.deposit.facts.poolLater,
+    );
+    reads.open();
+    await settle();
+    await settle();
+    expect(find(facts(), '[data-ui="pool-price"]').textContent).toContain('$600.00');
+    expect(facts().querySelector('[data-ui="pool-later"]')).toBeNull();
   });
 
   it('says the pool price is on its way only while an order is made: a wallet that is short has none', async () => {
