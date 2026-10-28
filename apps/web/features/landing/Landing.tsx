@@ -13,8 +13,8 @@ import type { PlatformStats } from './stats';
 // the slow honey fog behind it; and the platform's numbers under it, each with its pin. Nothing
 // more. Dark unless the visitor chose light (token-mapping.md: marketing is dark by default).
 
-/** A plan to look at before starting one: the shared portfolios. */
-export const SEE_A_PLAN = '/products';
+/** What to look at before starting a vault: the public leaderboard of vaults (Thom, Oct 28). */
+export const SEE_THE_LEADERBOARD = '/leaderboard';
 
 export function Landing({
   lang,
@@ -59,7 +59,7 @@ export function Landing({
                 {t.hero.start}
               </a>
               <a
-                href={SEE_A_PLAN}
+                href={SEE_THE_LEADERBOARD}
                 className={cn(
                   buttonClass({ variant: 'secondary' }),
                   'inline-flex h-12 items-center px-6 text-[1.0625rem]',

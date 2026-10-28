@@ -2809,7 +2809,7 @@ export const en = {
       title: 'No product fits everyone. So we make the products fit your goals.',
       lead: 'A vault made to measure, with its exit checked before you deposit. Every number carries its source.',
       start: 'Start your vault',
-      see: 'See shared portfolios',
+      see: 'See the leaderboard',
     },
     stats: {
       label: 'The platform in numbers',
