@@ -628,10 +628,14 @@ describe('relaxed intake: what a call costs', () => {
     expect(one.system[1]?.text).toContain('Answer in English');
   });
   it('sends effort only to a model that takes it, and a bounded reply length', async () => {
-    expect((await sent('I want USDY')).output_config.effort).toBe('medium');
+    const now = await sent('I want USDY');
+    expect(now.model).toBe('claude-opus-5-5');
+    expect(now.output_config.effort).toBe('high');
+    expect(now).not.toHaveProperty('thinking');
+    expect(now).not.toHaveProperty('temperature');
     const older = await sent('I want USDY', context(), 'claude-haiku-4-5');
     expect(older.output_config).not.toHaveProperty('effort');
-    expect(older.max_tokens).toBeLessThanOrEqual(4000);
+    expect(older.max_tokens).toBeLessThanOrEqual(16_000);
   });
 });
 
