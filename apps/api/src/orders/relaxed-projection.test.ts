@@ -90,6 +90,25 @@ describe('project', () => {
     expect(p?.text).toContain('Counted as earning nothing: USDC.');
   });
 
+  it('says nothing about growth for a vault whose lines pay no yield, instead of "earn about $0"', () => {
+    const stocks = [
+      { assetId: 'solana:nvdax', symbol: 'NVDAx', weightBps: 5000 },
+      { assetId: 'solana:aaplx', symbol: 'AAPLx', weightBps: 5000 },
+    ];
+    expect(project(input({ lines: stocks, needBy: '2029-10-28' }))).toBeNull();
+    expect(project(input({ lines: stocks }))).toBeNull();
+    // withdrawals still get their arithmetic, at no yield, and never a growth sentence of $0
+    for (const dated of [{ withdrawStart: '2026-06-01' }, { needBy: '2027-01-01' }, {}]) {
+      const text = project(
+        input({ lines: stocks, amount: 2000, monthly: 100, months: 3, ...dated }),
+      )?.text;
+      expect(text).toContain('3 withdrawals of $100 a month');
+      expect(text).not.toContain('would earn about');
+      // said once, not twice
+      expect(text?.match(/earning nothing/g)?.length).toBe(1);
+    }
+  });
+
   it('works out monthly withdrawals: what they need today and what the amount covers', () => {
     const p = project(input({ amount: 300, monthly: 100, months: 3, withdrawStart: '2026-02-01' }));
     expect(p?.text).toContain('3 withdrawals of $100 a month from 1 Feb 2026 need about $');
