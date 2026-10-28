@@ -97,10 +97,16 @@ describe('project', () => {
     ];
     expect(project(input({ lines: stocks, needBy: '2029-10-28' }))).toBeNull();
     expect(project(input({ lines: stocks }))).toBeNull();
-    // withdrawals still get their arithmetic, at no yield
-    expect(project(input({ lines: stocks, amount: 300, monthly: 100, months: 3 }))?.text).toContain(
-      '3 withdrawals of $100 a month',
-    );
+    // withdrawals still get their arithmetic, at no yield, and never a growth sentence of $0
+    for (const dated of [{ withdrawStart: '2026-06-01' }, { needBy: '2027-01-01' }, {}]) {
+      const text = project(
+        input({ lines: stocks, amount: 2000, monthly: 100, months: 3, ...dated }),
+      )?.text;
+      expect(text).toContain('3 withdrawals of $100 a month');
+      expect(text).not.toContain('would earn about');
+      // said once, not twice
+      expect(text?.match(/earning nothing/g)?.length).toBe(1);
+    }
   });
 
   it('works out monthly withdrawals: what they need today and what the amount covers', () => {

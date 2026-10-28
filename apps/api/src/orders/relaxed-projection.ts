@@ -135,7 +135,7 @@ export function project(input: ProjectionInput): Projection {
 
   // 1. What the amount grows to by the day it is needed (the first withdrawal is such a day too).
   const needBy = day(input.needBy) ?? day(input.withdrawStart);
-  if (input.amount != null && needBy && needBy > input.today) {
+  if (used.length && input.amount != null && needBy && needBy > input.today) {
     const amount = input.amount;
     const t = yearsBetween(input.today, needBy);
     const value = input.lines.reduce((sum, line) => {
@@ -205,7 +205,8 @@ export function project(input: ProjectionInput): Projection {
         )
         .join('; ')}.`
     : 'No line of this plan has a sourced yield reading, so it is counted as earning nothing.';
-  const zero = none.length ? ` Counted as earning nothing: ${none.join(', ')}.` : '';
+  const zero =
+    none.length && unique.length ? ` Counted as earning nothing: ${none.join(', ')}.` : '';
   return {
     text: `Projection, computed by Tenonfi from past rates, not a promise: ${out.join(' ')} ${basis}${zero}`,
     sourceIds: unique.flatMap((u) => u.ids),
