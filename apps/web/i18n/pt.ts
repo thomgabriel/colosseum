@@ -2753,7 +2753,6 @@ export const pt: Dictionary = {
       made: 'Resultado',
       read: 'Última leitura',
     },
-    numbered: (number: number) => `Cofre #${number}`,
     unnamed: (address: string) => `Cofre ${address}`,
     follows: (name: string) => `Segue ${name}`,
     open: (title: string) => `Abrir ${title}`,

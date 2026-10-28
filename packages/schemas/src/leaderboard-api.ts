@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import { Address, AssetId, ChainId, DecimalString, Sourced } from './chain';
 import { Provenance } from './enums';
-import { VaultNumber } from './vault';
 
 // GET /v1/leaderboard: every open vault the server knows on a chain, ranked by what it made or lost.
-// Anybody may read it, so a row says nothing of who owns a vault beyond the short form of the wallet
-// that owns it on chain: no user id, no email, no full address of the owner.
+// Anybody may read it, so a row holds only what is public on chain or measured by the server: no user
+// id, no email, no name the owner typed and no number among their vaults (only the owner is answered
+// that, gate VAULT-NUMBER). The owner is the short form of its wallet; the full one is on chain.
 
 /** The chains a leaderboard is answered for. Solana's test network today; more join this list. */
 export const LeaderboardChain = z.enum(['solana']);
@@ -51,10 +51,6 @@ export const LeaderboardRow = z.object({
   rank: z.number().int().positive(),
   chain: ChainId,
   address: Address,
-  /** The name its owner gave it, or null. */
-  name: z.string().nullable(),
-  /** Its number among its owner's vaults ("Vault #N"), where the server gave one. */
-  number: VaultNumber.optional(),
   /** The wallet that owns it, shortened: the first four characters and the last four. */
   owner: z.string(),
   /** What it holds at its newest snapshot, the largest share first, cash included. */

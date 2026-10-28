@@ -3095,7 +3095,6 @@ export const en = {
       made: 'Made',
       read: 'Last read',
     },
-    numbered: (number: number) => `Vault #${number}`,
     unnamed: (address: string) => `Vault ${address}`,
     follows: (name: string) => `Follows ${name}`,
     open: (title: string) => `Open ${title}`,

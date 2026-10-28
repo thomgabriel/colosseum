@@ -30,7 +30,6 @@ const row = (
   over: Partial<LeaderboardRow> & Pick<LeaderboardRow, 'rank' | 'address'>,
 ): LeaderboardRow => ({
   chain: 'solana',
-  name: null,
   owner: 'Abcd…wxyz',
   holdings: [],
   value: { usd: '1000.00', ...SOURCED },
@@ -61,7 +60,6 @@ const ANSWER: LeaderboardResponse = {
     row({
       rank: 1,
       address: A,
-      number: 3,
       owner: '9xQe…VFin',
       value: { usd: '1100.00', ...SOURCED },
       pnl: pnl('300.00', 0.375),
@@ -77,7 +75,6 @@ const ANSWER: LeaderboardResponse = {
     row({
       rank: 2,
       address: B,
-      name: 'Steady',
       pnl: pnl('-12.50', -0.0125),
       noPnl: null,
       follows: { name: 'The Seven', slug: 'the-seven' },
@@ -118,9 +115,8 @@ describe('the leaderboard page', () => {
     ]);
 
     const [first, second, third] = rows as [Element, Element, Element];
-    // a vault with no name is called by its number; one with neither by its address in short
-    expect(find(first, '[data-ui="leaderboard-vault"]').textContent).toBe(w.numbered(3));
-    expect(find(second, '[data-ui="leaderboard-vault"]').textContent).toBe('Steady');
+    // a vault is called by its address in short: its owner's name for it and number are theirs alone
+    expect(find(first, '[data-ui="leaderboard-vault"]').textContent).toBe(w.unnamed('9xQe…VFin'));
     expect(find(third, '[data-ui="leaderboard-vault"]').textContent).toBe(w.unnamed('4k3D…kX6R'));
     // the row opens the vault's own page, which anybody may read
     expect(find(first, 'a').getAttribute('href')).toBe(`/portfolio/vaults/solana/${A}`);
@@ -188,6 +184,8 @@ describe('the leaderboard page', () => {
     const { host } = await page(() => json(ANSWER), 'pt');
     const pt = dictionary('pt').leaderboard;
     expect(host.textContent).toContain(pt.title);
-    expect(host.querySelector('[data-ui="leaderboard-vault"]')?.textContent).toBe(pt.numbered(3));
+    expect(host.querySelector('[data-ui="leaderboard-vault"]')?.textContent).toBe(
+      pt.unnamed('9xQe…VFin'),
+    );
   });
 });

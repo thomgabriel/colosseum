@@ -185,10 +185,12 @@ function Board({ answer }: { answer: LeaderboardResponse }) {
   );
 }
 
-/** What a vault is called: its name, else "Vault #N", else its address in short. */
+/**
+ * What a vault is called here: by its address in short. The name its owner typed and its number among
+ * their vaults are theirs alone (gate VAULT-NUMBER), and this page is everyone's.
+ */
 export const titleOf = (row: LeaderboardRow, w: ReturnType<typeof useT>['leaderboard']) =>
-  row.name ??
-  (row.number !== undefined ? w.numbered(row.number) : w.unnamed(shortAddress(row.address)));
+  w.unnamed(shortAddress(row.address));
 
 function Row({ row }: { row: LeaderboardRow }) {
   const t = useT();

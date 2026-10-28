@@ -23,7 +23,6 @@ function row(
   return {
     chain: 'solana',
     address,
-    name: null,
     owner: 'Abcd…wxyz',
     holdings: [],
     value: valueUsd === null ? null : { usd: valueUsd, ...SOURCED },

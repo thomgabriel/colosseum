@@ -190,7 +190,7 @@ describe('GET /v1/leaderboard', () => {
       .insert(vaultNumbers)
       .values({ userId: a.userId, chainId: 'solana', address: up, number: 3 });
 
-    // Steady: named, following a shared portfolio, $1,000 in and worth $1,050.
+    // Steady: following a shared portfolio, $1,000 in and worth $1,050.
     const b = await someone();
     const { slug } = await data.storeFamily('solana', [
       { kind: 'asset', asset: 'solana:spy', weightBps: 10_000 },
@@ -239,8 +239,6 @@ describe('GET /v1/leaderboard', () => {
 
     const upRow = rowAt(answer, up);
     expect(upRow).toMatchObject({
-      number: 3,
-      name: null,
       owner: shortOwner(a.solana),
       value: { usd: '1100.00', provenance: 'mock', fetchedAt: upRead },
       pnl: {
@@ -263,7 +261,6 @@ describe('GET /v1/leaderboard', () => {
     ]);
 
     expect(rowAt(answer, steady)).toMatchObject({
-      name: 'Steady',
       pnl: { usd: '50.00', pct: 0.05 },
       follows: { name: family.name, slug },
     });
@@ -302,21 +299,32 @@ describe('GET /v1/leaderboard', () => {
 
   it('says nothing about who owns a vault but the short form of the wallet', async () => {
     const a = await someone();
-    const vault = await vaultOf(a, { number: '5', name: 'Mine' });
+    // A name the owner typed, which is not on chain, and their own count of vaults: neither is public.
+    const typed = `Maria Souza college fund ${randomUUID()}`;
+    const vault = await vaultOf(a, { number: '5', name: typed });
     await deposit(a, '5', 100);
     await snapshot(a, vault, '5', 100, 10);
     await data.db
       .insert(vaultNumbers)
-      .values({ userId: a.userId, chainId: 'solana', address: vault, number: 1 });
+      .values({ userId: a.userId, chainId: 'solana', address: vault, number: 7 });
     const { answer, body } = await read();
-    expect(rowAt(answer, vault)?.owner).toBe(shortOwner(a.solana));
-    for (const personal of [a.sub, a.userId, a.solana, a.evm, 'privy'])
+    const mine = rowAt(answer, vault);
+    expect(mine?.owner).toBe(shortOwner(a.solana));
+    for (const personal of [typed, a.sub, a.userId, a.solana, a.evm, 'privy'])
       expect(body).not.toContain(personal);
-    // and a row holds the answer's fields only
+    // every row holds these fields and no others: no name, no number, no user
     for (const row of answer.vaults)
-      expect(Object.keys(row).sort()).toEqual(
-        expect.arrayContaining(['address', 'owner', 'rank', 'value', 'pnl', 'holdings']),
-      );
+      expect(Object.keys(row).sort()).toEqual([
+        'address',
+        'chain',
+        'follows',
+        'holdings',
+        'noPnl',
+        'owner',
+        'pnl',
+        'rank',
+        'value',
+      ]);
   });
 
   it('keeps an answer for a minute', async () => {

@@ -144,7 +144,8 @@ async function takenOutOf(
   const taken = new Map<string, { micro: bigint; unvalued: number }>();
   for (const step of steps) {
     const named = step.request.type === 'withdraw' ? step.request.vaults[0] : undefined;
-    const address = named && [...vaultsOf.keys()].find((a) => same(a, named));
+    const address =
+      named && (vaultsOf.has(named) ? named : [...vaultsOf.keys()].find((a) => same(a, named)));
     // A withdrawal counts for the vault it names, and only when its owner is the vault's.
     if (!address || step.owner === null || !same(vaultsOf.get(address) ?? '', step.owner)) continue;
     const from = countsFrom.get(address);
@@ -173,7 +174,6 @@ export async function leaderboardOf(db: Db, entry: ChainEntry, now: Date) {
       .select({
         address: vaults.address,
         owner: vaults.owner,
-        name: vaults.name,
         basketId: vaults.onchainBasketId,
       })
       .from(vaults)
@@ -222,7 +222,6 @@ export async function leaderboardOf(db: Db, entry: ChainEntry, now: Date) {
     db
       .select({
         address: vaultNumbers.address,
-        number: vaultNumbers.number,
         privyId: users.privyId,
       })
       .from(vaultNumbers)
@@ -236,8 +235,10 @@ export async function leaderboardOf(db: Db, entry: ChainEntry, now: Date) {
       life.reopenedAt ? [[address, life.reopenedAt] as const] : [],
     ),
   );
-  // A number is a person's: a vault held as one person's has theirs; one held by two has none here.
-  const numbersAt = new Map<string, { number: number; privyId: string }[]>();
+  // The person behind each vault, where the server holds exactly one (`vault_numbers`): read to count
+  // their deposits as their portfolio does, never answered. Nor is the vault's number, which only its
+  // owner is answered (gate VAULT-NUMBER), nor the name its owner typed, which is not on chain.
+  const numbersAt = new Map<string, { privyId: string }[]>();
   for (const row of numbered)
     numbersAt.set(row.address, [...(numbersAt.get(row.address) ?? []), row]);
   const onlyOne = (address: string) => {
@@ -302,12 +303,9 @@ export async function leaderboardOf(db: Db, entry: ChainEntry, now: Date) {
       };
     }
     const family = snapshot?.recipeOnchainId ? families.get(snapshot.recipeOnchainId) : undefined;
-    const number = onlyOne(vault.address)?.number;
     return {
       chain,
       address: vault.address,
-      name: cacheOf.get(vault.address)?.name ?? null,
-      ...(number === undefined ? {} : { number }),
       owner: shortOwner(vault.owner),
       holdings: snapshot ? holdingsOf(snapshot) : [],
       value,
