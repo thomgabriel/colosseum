@@ -58,6 +58,8 @@ export const RELAXED_MODEL_ID = 'claude-opus-5-5';
 export const RELAXED_EFFORT = 'high';
 /** Room for the thinking, which counts against it, as well as the reply; under the SDK's limit unstreamed. */
 export const RELAXED_MAX_TOKENS = 16_000;
+/** One answer's time, its lookup rounds included: high effort thinks for longer than the 60 s it had. */
+export const RELAXED_TIMEOUT_MS = 90_000;
 
 /** The `GOAL_AGENT` values: unset or `relaxed` is the relaxed intake; `model-led` opts out of it. */
 export const GOAL_AGENT_RELAXED = 'relaxed';
@@ -517,7 +519,7 @@ export function createRelaxedGoalAgent(options: {
 }): RelaxedGoalAgent {
   const model = options.model ?? RELAXED_MODEL_ID;
   /** One call's time, as before the lookups; a reply's calls share it (`ask`). */
-  const callMs = options.timeoutMs ?? 60_000;
+  const callMs = options.timeoutMs ?? RELAXED_TIMEOUT_MS;
   const log =
     options.log ?? ((msg, detail) => console.warn(`relaxed goal agent: ${msg}`, detail ?? ''));
   const client = new Anthropic({
