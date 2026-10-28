@@ -53,6 +53,14 @@ import { cleanProse, withoutMark, withoutReferences, withoutUnserved } from './v
 // figure but a measured one it names by reference, which the server writes with its source
 // (FIGURES-BY-REFERENCE, on /invest since 2026-10-09; relaxed-figures.ts).
 
+/** The goal agent's model when `RELAXED_MODEL` is unset, and its effort (Thom, Oct 28: Opus 5.5 at high). */
+export const RELAXED_MODEL_ID = 'claude-opus-5-5';
+export const RELAXED_EFFORT = 'high';
+/** Room for the thinking, which counts against it, as well as the reply; under the SDK's limit unstreamed. */
+export const RELAXED_MAX_TOKENS = 16_000;
+/** One answer's time, its lookup rounds included: high effort thinks for longer than the 60 s it had. */
+export const RELAXED_TIMEOUT_MS = 90_000;
+
 /** The `GOAL_AGENT` values: unset or `relaxed` is the relaxed intake; `model-led` opts out of it. */
 export const GOAL_AGENT_RELAXED = 'relaxed';
 export const GOAL_AGENT_MODEL_LED = 'model-led';
@@ -509,9 +517,9 @@ export function createRelaxedGoalAgent(options: {
     call?: { timeout?: number },
   ) => Promise<Pick<Anthropic.Message, 'stop_reason' | 'content'>>;
 }): RelaxedGoalAgent {
-  const model = options.model ?? 'claude-sonnet-5-5';
+  const model = options.model ?? RELAXED_MODEL_ID;
   /** One call's time, as before the lookups; a reply's calls share it (`ask`). */
-  const callMs = options.timeoutMs ?? 60_000;
+  const callMs = options.timeoutMs ?? RELAXED_TIMEOUT_MS;
   const log =
     options.log ?? ((msg, detail) => console.warn(`relaxed goal agent: ${msg}`, detail ?? ''));
   const client = new Anthropic({
@@ -606,13 +614,13 @@ export function createRelaxedGoalAgent(options: {
               create(
                 {
                   model,
-                  max_tokens: 4000,
+                  max_tokens: RELAXED_MAX_TOKENS,
                   system,
                   ...more,
                   output_config: {
                     format: { type: 'json_schema', schema: REPLY_SCHEMA },
                     // only where the model takes it: Haiku 4.5 and Sonnet 4.5 answer 400 to it
-                    ...(acceptsEffort(model) ? { effort: 'medium' } : {}),
+                    ...(acceptsEffort(model) ? { effort: RELAXED_EFFORT } : {}),
                   },
                 } as unknown as Anthropic.MessageCreateParamsNonStreaming,
                 timeoutMs !== undefined ? { timeout: timeoutMs } : undefined,
