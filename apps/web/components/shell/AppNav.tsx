@@ -22,7 +22,9 @@ import { ThemeToggle } from './ThemeToggle';
 //               "Copy address" and the explorer) and "Sign out" (AccountMenu.tsx). The bar shows and
 //               switches no chain (gate CHAIN-AT-THE-PLAN): where a plan starts is chosen on /invest
 //
-//   Products    the shelf of shared portfolios (/products), and a portfolio's page under it
+//   Leaderboard every open vault on the chain ranked by what it made (/leaderboard), for everyone,
+//               in the place of Products, which is out of the bar for the demo (Thom, Oct 28): the
+//               shelf (/products) and a portfolio's page under it are still there, reached by link
 //
 // A page's first segment is the name of the item it is under (gate ROUTES-MATCH-NAV, Thom, Oct 14):
 // a vault's page, the older monitor and an order's page (/portfolio/orders/{id}) are under Portfolio.
@@ -38,7 +40,9 @@ import { ThemeToggle } from './ThemeToggle';
 
 /** The product's routes in the bar, his order; `signedIn` marks the one a visitor does not get. */
 const ROUTES = [
-  { href: '/products', key: 'products', also: ['/products'] },
+  // every open vault on the chain, ranked by what it made, for everyone. It stands where Products
+  // stood: Products is out of the bar for the demo (Thom, Oct 28), its pages and routes unchanged.
+  { href: '/leaderboard', key: 'leaderboard', also: ['/leaderboard'] },
   { href: '/invest', key: 'invest', also: ['/invest'] },
   // the portfolio section's board (/portfolio); a vault's page, an order's and the monitor are under it
   { href: '/portfolio', key: 'portfolio', signedIn: true, also: ['/portfolio'] },

@@ -2570,6 +2570,55 @@ export type GetIndexesBySlugVersionsResponse = {
   }[];
 };
 
+/** GET /v1/leaderboard: query. Every open vault on a chain, ranked by what it made */
+export type GetLeaderboardQuery = {
+  chain?: 'solana';
+};
+
+/** GET /v1/leaderboard: response. Every open vault on a chain, ranked by what it made */
+export type GetLeaderboardResponse = {
+  chain: 'solana' | 'base' | 'robinhood';
+  name: string;
+  provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+  readAt: string;
+  rule: string;
+  vaults: {
+    rank: number;
+    chain: 'solana' | 'base' | 'robinhood';
+    address: string | string;
+    owner: string;
+    holdings: {
+      asset: string;
+      weightBps: number;
+    }[];
+    value: {
+      source: string;
+      method: string;
+      fetchedAt: string;
+      provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+      usd: string;
+    } | null;
+    pnl: {
+      source: string;
+      method: string;
+      fetchedAt: string;
+      provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+      usd: string;
+      pct: number | null;
+      netInUsd: string;
+      depositsUsd: string;
+      withdrawalsUsd: string;
+      unvaluedWithdrawals: number;
+    } | null;
+    noPnl: ('no_deposit_record' | 'never_read') | null;
+    follows: {
+      name: string;
+      slug: string;
+    } | null;
+  }[];
+  disclaimer: string;
+};
+
 /** GET /v1/me: response. The signed-in person: their wallets, and the chain their new plans are made on */
 export type GetMeResponse = {
   userId: string;
@@ -5210,6 +5259,7 @@ export interface ApiRoutes {
     query: GetIndexesBySlugVersionsQuery;
     response: GetIndexesBySlugVersionsResponse;
   };
+  'GET /v1/leaderboard': { query: GetLeaderboardQuery; response: GetLeaderboardResponse };
   'GET /v1/me': { response: GetMeResponse };
   'PUT /v1/me/chain': { body: PutMeChainBody; response: PutMeChainResponse };
   'GET /v1/me/plans': { query: GetMePlansQuery; response: GetMePlansResponse };

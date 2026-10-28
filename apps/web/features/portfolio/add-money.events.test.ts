@@ -810,11 +810,11 @@ describe('a vault’s own page, which anybody can open', () => {
     expect(host.querySelector('[data-ui="vault-actions"]')).toBeNull();
     expect(host.textContent).not.toContain('Rent');
     expect(server.to(PORTFOLIO_PATH)).toEqual([]);
-    // no portfolio to go back to: the way back is to Products, and the chain is its chip by the title
+    // no portfolio to go back to: the way back is to the leaderboard, and the chain is its chip by the title
     const back = find<HTMLAnchorElement>(host, '[data-ui="vault-back"]');
     expect([back.textContent, back.getAttribute('href')]).toEqual([
       en.shared.vault.backVisitor,
-      '/products',
+      '/leaderboard',
     ]);
     expect(find(host, 'header [data-ui="chain-badge"]').getAttribute('data-chain')).toBe('solana');
     expect(host.querySelector('[data-ui="vault-chain"]')).toBeNull();

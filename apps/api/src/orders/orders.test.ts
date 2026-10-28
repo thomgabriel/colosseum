@@ -913,6 +913,7 @@ describe('the /v1 route table', () => {
       '/v1/funding',
       '/v1/indexes/{slug}',
       '/v1/indexes/{slug}/versions',
+      '/v1/leaderboard',
       '/v1/me',
       '/v1/me/chain',
       '/v1/me/plans',
@@ -1055,6 +1056,8 @@ describe('no /v1 route can make the server sign', () => {
       'plugins/paths.ts',
       'portfolio/exposure.ts',
       'portfolio/history.ts',
+      // the public leaderboard, read from the database alone
+      'portfolio/leaderboard.ts',
       'portfolio/lifetimes.ts',
       'portfolio/numbers.ts',
       'portfolio/plans.ts',
@@ -1064,6 +1067,8 @@ describe('no /v1 route can make the server sign', () => {
       'portfolio/snapshots.ts',
       // why a vault's holdings are there, from stored reasons and the chain's asset list: no key
       'portfolio/why.ts',
+      // a read kept for a minute (the leaderboard's): a map and a clock, no key
+      'read-cache.ts',
       'routes/v1/assets.ts',
       'routes/v1/baskets.ts',
       'routes/v1/config.ts',
@@ -1071,6 +1076,7 @@ describe('no /v1 route can make the server sign', () => {
       'routes/v1/goal-conversation-reply.ts',
       'routes/v1/index.ts',
       'routes/v1/intake.ts',
+      'routes/v1/leaderboard.ts',
       'routes/v1/me.ts',
       'routes/v1/mix.ts',
       'routes/v1/mock.ts',

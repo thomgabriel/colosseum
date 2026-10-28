@@ -96,3 +96,9 @@ export async function withdrawMetadata() {
   const t = dictionary(lang);
   return { title: t.withdraw.meta, description: t.withdraw.title };
 }
+
+export async function leaderboardMetadata() {
+  const { lang } = await readPreferences();
+  const t = dictionary(lang);
+  return { title: t.leaderboard.title, description: t.leaderboard.description };
+}

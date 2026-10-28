@@ -71,7 +71,7 @@ test('a visitor on a vault’s page: its address for a title, its chain, and the
   await expect(head.locator('[data-ui="chain-badge"]')).toHaveText('Solana');
   const back = head.locator('[data-ui="vault-back"]');
   await expect(back).toHaveText(en.shared.vault.backVisitor);
-  await expect(back).toHaveAttribute('href', '/products');
+  await expect(back).toHaveAttribute('href', '/leaderboard');
   await expect(page.getByText(en.shared.vault.back)).toHaveCount(0);
   await expect(page.getByText(en.shared.vault.title)).toHaveCount(0);
   await check(page, 'vault-visitor');
