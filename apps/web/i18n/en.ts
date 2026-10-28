@@ -18,6 +18,7 @@ export const en = {
     invest: 'Invest',
     portfolio: 'Portfolio',
     products: 'Products',
+    leaderboard: 'Leaderboard',
     resources: 'Resources',
     analytics: 'Analytics',
     shelf: 'Shelf',
@@ -2044,7 +2045,7 @@ export const en = {
       missing: 'There is no vault at this address.',
       back: 'Back to your portfolio',
       /** A visitor's way back: they have no portfolio here. */
-      backVisitor: 'Back to Products',
+      backVisitor: 'Back to the leaderboard',
       unreachable: 'I couldn’t read this vault: our server didn’t answer. Try again.',
       chainOff: (chain: string) =>
         `${chain} is switched off on our server for now, so this vault can’t be read here.`,
@@ -3068,6 +3069,51 @@ export const en = {
       fromPerson: 'Chosen by you.',
       note: 'The first step sets these targets on chain; the steps after it swap to reach them, each with its minimum.',
     },
+  },
+  /** The leaderboard (/leaderboard): every open vault on a chain, ranked by what it made. */
+  leaderboard: {
+    title: 'Leaderboard',
+    description: 'Every open vault, ranked by what it made against what was deposited into it.',
+    lead: (chain: string) =>
+      `Every open vault on ${chain}, ranked by what it made as a share of what was deposited into it.`,
+    rule: 'What a vault made is its value now plus what was taken out, less the deposits made in this app. A vault with no deposit made in this app comes last.',
+    loading: 'Reading the vaults…',
+    empty: (chain: string) => `No vault is open on ${chain} yet.`,
+    failure: {
+      unreachable: 'I couldn’t read the leaderboard: our server didn’t answer. Try again.',
+      unreadable: 'I couldn’t read the leaderboard’s answer. Try again.',
+      retry: 'Try again',
+    },
+    heading: 'Open vaults',
+    vaults: 'Count',
+    table: {
+      rank: 'Rank',
+      vault: 'Vault',
+      owner: 'Owner',
+      holds: 'Holds',
+      value: 'Value',
+      made: 'Made',
+      read: 'Last read',
+    },
+    unnamed: (address: string) => `Vault ${address}`,
+    follows: (name: string) => `Follows ${name}`,
+    open: (title: string) => `Open ${title}`,
+    more: (count: number) => `+${count} more`,
+    noDeposit: 'No deposit made in this app',
+    /** When a vault was last read, counted back from now: `{n}` the count, `{unit}` its word. */
+    ago: {
+      said: '{n} {unit} ago',
+      minute: ['min', 'min'],
+      hour: ['h', 'h'],
+      day: ['day', 'days'],
+    },
+    neverRead: 'Not read yet',
+    unvalued: (count: number) =>
+      count === 1
+        ? 'A token taken out had no price then, and isn’t counted.'
+        : `${count} tokens taken out had no price then, and aren’t counted.`,
+    value: 'Value',
+    made: 'Made',
   },
 };
 
