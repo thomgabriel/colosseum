@@ -1,5 +1,5 @@
 'use client';
-import type { ChainId } from '@colosseum/schemas';
+import type { ChainId, OrderDetail } from '@colosseum/schemas';
 import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
@@ -52,6 +52,10 @@ export function DepositSign({
   onChange,
   onLeave,
   host,
+  inline = false,
+  onOrder,
+  foot,
+  onQuoting,
 }: {
   chain: ChainId;
   planId: string;
@@ -65,6 +69,18 @@ export function DepositSign({
   /** Called after the host was told the deposit is left: back to the proposal. */
   onLeave?: () => void;
   host: DepositHost;
+  /**
+   * Drawn under the amount and the holdings of the deposit step, in its card (gate
+   * DEPOSIT-ONE-SCREEN): no heading or amount of its own until the deposit is done, the focus left
+   * where it is, and the order's review as one line of costs over the press.
+   */
+  inline?: boolean;
+  /** The order on the card as our server made it, and null once none is: its quotes. */
+  onOrder?: (order: OrderDetail | null) => void;
+  /** Where the host draws the press and the order's costs (its card's foot), until the press. */
+  foot?: HTMLElement | null;
+  /** An order is being made for the card now, or no longer is. */
+  onQuoting?: (quoting: boolean) => void;
 }) {
   const t = useT();
   const lang = useLang();
@@ -80,8 +96,11 @@ export function DepositSign({
   const f = t.shared.vault.page.finish;
   const to = useRef(host);
   to.current = host;
-  // The pane took the place of the review: its heading takes focus, so it is read from the top.
+  // The pane took the place of the review: its heading takes focus, so it is read from the top. Under
+  // the deposit step's own amount, the focus stays where the person is.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, when the pane opens
   useEffect(() => {
+    if (inline) return;
     const heading = document.getElementById(titleId);
     heading?.setAttribute('tabindex', '-1');
     heading?.focus();
@@ -95,34 +114,41 @@ export function DepositSign({
     <section
       data-ui="deposit-sign"
       data-state={done ? 'done' : running ? 'signing' : approved ? 'approved' : 'ready'}
-      aria-labelledby={titleId}
+      aria-labelledby={!inline || done || finishes ? titleId : undefined}
       className="flex min-w-0 flex-col gap-4"
     >
-      <header className="flex min-w-0 flex-col gap-2">
-        <h2 id={titleId} className="font-display text-h4 font-semibold outline-none">
-          {done ? s.doneTitle : finishes ? f.title : s.title}
-        </h2>
-        <p
-          data-ui="deposit-sign-amount"
-          className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body"
-        >
-          <span>
-            {s.amount} <span className="font-medium tabular-nums">{dollars(amountUsd, lang)}</span>
-            {' · '}
-            {t.chain.names[chain]}
-          </span>
-          {onChange && !approved && (
-            <Button variant="link" aria-label={s.changeLabel} onClick={onChange}>
-              {s.change}
-            </Button>
+      {/* Under the deposit step's own amount (inline), nothing is said twice before the press: the
+          amount is said as a fact once it is approved, and the heading once it is done. */}
+      {(!inline || approved || done || finishes) && (
+        <header className="flex min-w-0 flex-col gap-2">
+          {(!inline || done || finishes) && (
+            <h2 id={titleId} className="font-display text-h4 font-semibold outline-none">
+              {done ? s.doneTitle : finishes ? f.title : s.title}
+            </h2>
           )}
-        </p>
-        {!done && (
-          <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-            {finishes ? f.lead : resume ? s.resumed : s.lead}
+          <p
+            data-ui="deposit-sign-amount"
+            className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body"
+          >
+            <span>
+              {s.amount}{' '}
+              <span className="font-medium tabular-nums">{dollars(amountUsd, lang)}</span>
+              {' · '}
+              {t.chain.names[chain]}
+            </span>
+            {onChange && !approved && (
+              <Button variant="link" aria-label={s.changeLabel} onClick={onChange}>
+                {s.change}
+              </Button>
+            )}
           </p>
-        )}
-      </header>
+          {!done && (
+            <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
+              {finishes ? f.lead : resume ? s.resumed : s.lead}
+            </p>
+          )}
+        </header>
+      )}
       {/* the end, over the steps it sums up: the one way on is not under a long card */}
       {done && (
         <div data-ui="deposit-done" className="flex flex-col items-start gap-3">
@@ -152,6 +178,10 @@ export function DepositSign({
           of={{ plan: planId }}
           amount={amountUsd}
           hostEnds
+          {...(inline ? { compact: true } : {})}
+          {...(onOrder ? { onOrder } : {})}
+          {...(foot ? { foot } : {})}
+          {...(onQuoting ? { onQuoting } : {})}
           {...(resume ? { resumeOrder: resume.orderId } : {})}
           onProgress={(progress) => {
             // The first word is the press itself: from here the deposit is kept, and the box is held.

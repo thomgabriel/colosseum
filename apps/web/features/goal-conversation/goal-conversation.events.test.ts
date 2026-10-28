@@ -671,9 +671,9 @@ describe('the deposit step of a new goal', () => {
     expect(find(host, '[data-ui="goal-strategy"]').textContent).not.toMatch(/use this mix/i);
     await click(find(host, '[data-action="deposit"]'));
     const step = find(host, '[data-ui="deposit-step"]');
-    expect(find(step, '[data-ui="deposit-purpose"]').textContent).toContain(
-      en.mix.deposit.purpose('grow', 'high'),
-    );
+    // no goal or risk label on the deposit card (Thom, Oct 28): what was said goes with the check
+    expect(step.querySelector('[data-ui="deposit-purpose"]')).toBeNull();
+    expect(step.textContent).not.toMatch(/\brisk\b/i);
     expect(step.querySelectorAll('select')).toHaveLength(0);
     expect(step.querySelectorAll('input')).toHaveLength(1);
     // the same rows the preview drew, read only
@@ -734,9 +734,11 @@ describe('the deposit step of a new goal', () => {
     });
     await send(host, 'medium risk please');
     await click(find(host, '[data-action="deposit"]'));
-    expect(find(host, '[data-ui="deposit-purpose"]').textContent).toContain(
-      en.mix.deposit.purpose(null, 'medium'),
-    );
+    await settle(CHECK_MS + 50);
+    expect(calls.filter((call) => call.path === accept).at(-1)?.body).toMatchObject({
+      goal: null,
+      risk: 'medium',
+    });
     expect(host.querySelector('[data-ui="deposit-goal"]')).toBeNull();
   });
 
@@ -763,8 +765,9 @@ describe('the deposit step of a new goal', () => {
       // focused and selected: what the person types replaces it
       expect(document.activeElement).toBe(amount(host));
       expect([amount(host).selectionStart, amount(host).selectionEnd]).toEqual([0, 4]);
-      expect(find(host, '[data-action="deposit-review"]').textContent).toContain(
-        en.mix.deposit.reviewOf('$2,000'),
+      // the one press names the amount (gate DEPOSIT-ONE-SCREEN)
+      expect(find(host, '[data-action="deposit-press"]').textContent).toContain(
+        en.invest.press('$2,000'),
       );
       // a newer sum replaces the one filled in, and something the app cannot read leaves it
       await send(host, 'make it 3k');
@@ -827,9 +830,11 @@ describe('the deposit step of a new goal', () => {
 
     // a reply that only talks changes what was said, not the mix
     await send(host, 'actually low risk');
-    expect(find(host, '[data-ui="deposit-purpose"]').textContent).toContain(
-      en.mix.deposit.purpose('grow', 'low'),
-    );
+    await settle(CHECK_MS + 50);
+    expect(calls.filter((call) => call.path === accept).at(-1)?.body).toMatchObject({
+      goal: 'grow',
+      risk: 'low',
+    });
     expect(amount(host).value).toBe('250');
 
     // another proposal is read as a preview first; using it finds the amount where it was
@@ -1107,7 +1112,7 @@ describe('the draft drawn on the plan bar', () => {
     // the next wait: the draft stays, said to be the last one, and its action waits
     // the button opens the deposit step; back on the proposal, the next words are sent
     await click(use());
-    expect(host.querySelector('[data-action="deposit-review"]')).not.toBeNull();
+    expect(host.querySelector('[data-action="deposit-press"]')).not.toBeNull();
     await click(
       [...host.querySelectorAll('button')].find(
         (button) => button.textContent === en.mix.deposit.backToProposal,
@@ -1160,7 +1165,7 @@ describe('the draft drawn on the plan bar', () => {
       words[1]?.querySelector('[data-ui="lattice"], [data-ui="lattice-loader"]'),
     ).not.toBeNull();
     await click(use());
-    expect(host.querySelector('[data-action="deposit-review"]')).toBeNull();
+    expect(host.querySelector('[data-action="deposit-press"]')).toBeNull();
 
     await release();
     expect(find(strategy, '[data-ui="preview-pending"]').textContent).toBe('');

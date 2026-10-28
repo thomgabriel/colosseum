@@ -119,9 +119,10 @@ export type CompositionProps = {
   /**
    * Where a table with more than the share folds into rows: under 40rem (`wide`, the default), or
    * under 56rem (`wider`) for a table too wide for 40rem, as a vault's holdings off their targets.
-   * A table of the share alone keeps its own fold.
+   * A table of the share alone keeps its own fold. `narrow` keeps the columns down to 28rem, for a
+   * pane whose rows carry their facts under each name (the one-screen deposit).
    */
-  fold?: 'wide' | 'wider';
+  fold?: 'wide' | 'wider' | 'narrow';
   className?: string;
 };
 
@@ -194,6 +195,24 @@ const FOLD = {
     roomy: '@max-[56rem]:basis-full',
     roomyHead: '',
   },
+  // A pane's table whose rows carry a few lines of facts under each name (the one-screen deposit): the
+  // columns kept down to a phone's width, the facts wrapping in the asset's cell, the share's bar
+  // only where there is room for it.
+  narrow: {
+    table: '',
+    head: '@max-[28rem]:sr-only',
+    cell: '@max-[28rem]:p-0',
+    row: '@max-[28rem]:flex @max-[28rem]:flex-wrap @max-[28rem]:items-start @max-[28rem]:gap-x-6 @max-[28rem]:gap-y-2 @max-[28rem]:px-5 @max-[28rem]:py-3',
+    asset: '@max-[28rem]:basis-full',
+    sub: '',
+    weight: '@max-[28rem]:text-left',
+    bar: '@min-[44rem]:block',
+    figure: '@max-[28rem]:text-left',
+    label: 'hidden text-caption text-muted-foreground @max-[28rem]:block',
+    said: 'sr-only @max-[28rem]:hidden',
+    roomy: '@max-[28rem]:basis-full',
+    roomyHead: '',
+  },
 } as const;
 export type Fold = keyof typeof FOLD;
 
@@ -201,7 +220,7 @@ export type Fold = keyof typeof FOLD;
 export function foldOf(
   compare: boolean,
   columns: readonly CompositionColumn[],
-  asked?: 'wide' | 'wider',
+  asked?: 'wide' | 'wider' | 'narrow',
 ): Fold {
   if (!compare && columns.length === 0) return 'share';
   return asked ?? 'wide';

@@ -4,6 +4,7 @@ import {
   chainFamily,
   type MixLine,
   type MixReview,
+  type OrderDetail,
   type Provenance,
 } from '@colosseum/schemas';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -22,24 +23,39 @@ import { rememberPlan } from '../order/plan-store';
 import { onMock } from '../order/readiness';
 import { unitsFor } from '../order/units';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
+import { DepositFacts, DepositSummary } from './DepositFacts';
 import { type DepositHost, DepositSign } from './DepositSign';
+import { type QuotePrice, quotePrices } from './deposit-facts';
 import { useFailureText } from './failure';
 import { MixLines, type MixRow } from './MixLines';
-import { MixReviewCard, useTicks } from './MixReviewCard';
-import { acceptedOf, cashLeft, mixOf, sameMix } from './mix';
+import { MixReviewAck, useTicks } from './MixReviewCard';
+import { acceptedOf, cashLeft, mixOf, sameMix, unticked } from './mix';
 import { acceptGoalMix } from './mix-api';
 import { linesOf, WeightEditor, type Weights, weightsOf } from './WeightEditor';
 
-// The deposit step of a new goal (gate DEPOSIT-STEP): after the conversation proposes a mix, one
-// amount is typed and one press leads to the server's review and its ticks. Once the person confirms,
-// the same pane shows the steps to sign (DepositSign, gate DEPOSIT-IN-PLACE): nobody leaves the
-// conversation to deposit. There is no form: the mix is the conversation's and is
-// changed there, the amount starts from the sum the person wrote there, the goal and the risk are the
-// ones the person said there, and one they did not say is worked out by the server from the mix and
-// said as such (gate DEPOSIT-DERIVE): nothing is asked here. What the amount becomes in each asset is
-// the server's own check of this mix at this amount, never worked out on this screen. Editing a weight
-// by hand is behind its own control, closed until asked for, and a mix edited that way is marked and
-// is the one checked.
+// The deposit of a new goal, on one screen (gate DEPOSIT-ONE-SCREEN, Thom, Oct 28, amending
+// DEPOSIT-STEP and DEPOSIT-IN-PLACE): after the conversation proposes a vault, one card takes the
+// amount, shows what goes into each holding with the facts that matter for it (the price the vault
+// buys at beside the reference feed's, the exit as Analytics measured it), the costs of the order in
+// one line, the trust notice the first time, and one press that signs every step. Then the same card
+// shows the progress and the end. Nobody leaves the conversation to deposit, and there is no second
+// or third screen of the same table.
+//
+// Fewer screens, not fewer checks. What the amount becomes in each asset is our server's own check of
+// this mix at this amount (`confirm: false`), never worked out here. Once it is in and every warning
+// is confirmed (one box for all of them), the server checks every line again at today's prices and
+// stores the plan (`confirm: true` with the review's hash; a review whose figures moved comes back
+// instead, and its warnings are confirmed again). The order is then made for that plan by the invest
+// card (InvestCard, gate INVEST-ONE-PRESS) inside this one: the wallet's check, the notice, the order
+// check, the guard on every step's bytes, the minimums pinned in the approved order are all its own,
+// unchanged. A plan is stored by itself for a few amounts only; after that the person asks.
+//
+// There is no form: the mix is the conversation's and is changed there, the amount starts from the
+// sum the person wrote there, and the goal and the risk the person said there are sent with the check
+// (one they did not say is worked out by the server, gate DEPOSIT-DERIVE) but never shown as a label:
+// the card says measured facts of the vault at this amount instead (Thom, Oct 28).
+// Editing a weight by hand is behind its own control, closed until asked for, and a mix edited that
+// way is marked and is the one checked.
 
 export type Goal = 'grow' | 'income' | 'protect';
 export type Risk = 'low' | 'medium' | 'high';
@@ -48,10 +64,19 @@ export type Purpose = { goal: Goal | null; risk: Risk | null };
 
 /** How long the amount has to be still before the server is asked what it becomes in each asset. */
 export const CHECK_MS = 500;
+/**
+ * How many plans the step stores by itself, one for each amount or review the person settles on.
+ * Each is followed by an order, whose quotes count in the API's `build` budget the run itself needs
+ * (INVEST-ONE-PRESS): after these, the person asks for today's prices again.
+ */
+export const AUTO_STORES = 4;
 
 type Checked =
   | { key: string; review: MixReview }
   | { key: string; failure: string; invalid: boolean };
+
+/** A plan our server stored for one check of this mix at this amount: `key` is the check and its hash. */
+type Stored = { key: string; planId: string; amountUsd: number };
 
 export function DepositStep({
   chain,
@@ -83,7 +108,7 @@ export function DepositStep({
   onChangeMix: () => void;
   /** Back to the proposal as the conversation showed it. */
   onClose: () => void;
-  /** The conversation is working on a reply: the mix may be about to change, so no review starts. */
+  /** The conversation is working on a reply: the mix may be about to change, so nothing is stored. */
   waiting?: boolean;
   /** Told as the deposit is approved, signed and done, so the conversation holds its box. */
   host: DepositHost;
@@ -100,38 +125,46 @@ export function DepositStep({
   const [weights, setWeights] = useState<Weights | null>(null);
   const [editing, setEditing] = useState(false);
   const [checked, setChecked] = useState<Checked | null>(null);
-  const [review, setReview] = useState<MixReview | null>(null);
-  const [changed, setChanged] = useState(false);
-  const [ticked, tick] = useTicks(review);
-  const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
-  const [tried, setTried] = useState(false);
-  // The plan the server stored for the confirmed review, at its amount: the steps to sign take the pane.
-  const [confirmed, setConfirmed] = useState<{ planId: string; amountUsd: number } | null>(null);
+  // Asked again by hand after a check that did not get through.
+  const [round, setRound] = useState(0);
+  // The plan our server stored for the check on the screen, and the one a press approved: from the
+  // press on, the card is that deposit's, whatever is typed or answered after.
+  const [stored, setStored] = useState<Stored | null>(null);
+  const [pinned, setPinned] = useState<Stored | null>(null);
+  const [storing, setStoring] = useState<string | null>(null);
+  const [storeFailure, setStoreFailure] = useState<{ key: string; text: string } | null>(null);
+  // The review our server answered to a store, in place of a plan: its figures moved.
+  const [moved, setMoved] = useState<string | null>(null);
+  // The check the person asked to store by hand, past the ones stored by themselves.
+  const [asked, setAsked] = useState<string | null>(null);
+  const stores = useRef(0);
+  const storingFor = useRef<string | null>(null);
+  // The quotes of the order on the card, for the plan they are of.
+  const [quotes, setQuotes] = useState<{
+    planId: string;
+    prices: Map<string, QuotePrice>;
+  } | null>(null);
+  // The plan an order is being made for now, as the invest card says.
+  const [placingFor, setPlacingFor] = useState<string | null>(null);
+  // The reader's clock, for the age of a measurement, read again once a minute.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   // The amount has been still for a moment, or the field was left: only then is it said to be wrong.
   const [settled, setSettled] = useState(false);
+  const [tried, setTried] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-  const focus = (selector: string) => root.current?.querySelector<HTMLElement>(selector)?.focus();
-  // The step opens with the one thing to type. Focus never falls to the page when a screen changes.
-  // An amount filled in from the conversation is selected, so what the person types replaces it.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: once, when the step opens
+  // The card's foot, where the press and the order's costs are drawn (sticky where the pane scrolls).
+  const [foot, setFoot] = useState<HTMLDivElement | null>(null);
+  // The step opens with the one thing to type. An amount filled in from the conversation is
+  // selected, so what the person types replaces it.
   useEffect(() => {
-    focus('[data-ui="amount-well"] input');
-    root.current?.querySelector<HTMLInputElement>('[data-ui="amount-well"] input')?.select();
+    const input = root.current?.querySelector<HTMLInputElement>('[data-ui="amount-well"] input');
+    input?.focus();
+    input?.select();
   }, []);
-  // From the review back to the step: the press that led there.
-  const reviewing = review !== null;
-  const wasReviewing = useRef(false);
-  // "Change" beside the amount on the steps to sign leads back to the field itself.
-  const toAmount = useRef(false);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `focus` reads a ref
-  useEffect(() => {
-    if (wasReviewing.current && !reviewing) {
-      focus(toAmount.current ? '[data-ui="amount-well"] input' : '[data-action="deposit-review"]');
-      toAmount.current = false;
-    }
-    wasReviewing.current = reviewing;
-  }, [reviewing]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a pause after each change of the text
   useEffect(() => {
     setSettled(false);
@@ -186,13 +219,14 @@ export function DepositStep({
 
   // What the amount becomes in each asset: asked of the server once the amount and the weights have
   // been still for a moment. Only the answer to what is on the screen now is shown.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for everything that is sent, `round` asks again
   useEffect(() => {
-    if (key === null || review) return;
+    if (key === null || pinned) return;
     const timer = setTimeout(async () => {
-      const asked = sending.current.body;
-      if (!asked) return;
+      const asking = sending.current.body;
+      if (!asking) return;
       const answer = await acceptGoalMix(api, chain, {
-        ...asked,
+        ...asking,
         confirm: false,
         acceptedWarnings: [],
       });
@@ -211,147 +245,104 @@ export function DepositStep({
       );
     }, CHECK_MS);
     return () => clearTimeout(timer);
-    // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for everything that is sent
-  }, [key, review, api, chain]);
+  }, [key, api, chain, round]);
 
   const current = checked && checked.key === key ? checked : null;
   const live = current && 'review' in current ? current.review : null;
   const refused = current && 'failure' in current ? current : null;
+  const [ticked, tick] = useTicks(live);
+  // Every warning of the check on the screen is confirmed: there is nothing more to ask before it is
+  // stored. A check with none is confirmed as it stands.
+  const acked = live !== null && unticked(live, ticked).length === 0;
+  const storeKey = live && key ? `${key}|${live.reviewHash}` : null;
 
-  async function toReview() {
-    setTried(true);
-    setFailure(null);
-    if (!body || !key) return;
-    if (live) {
-      setChanged(false);
-      return setReview(live);
-    }
-    setBusy(true);
-    const answer = await acceptGoalMix(api, chain, {
-      ...body,
-      confirm: false,
-      acceptedWarnings: [],
-    });
-    setBusy(false);
-    // The step is locked while this runs; an answer about anything else is still dropped.
-    if (sending.current.key !== key) return;
-    if (answer.kind !== 'ok')
-      return setChecked({
-        key,
-        failure: failureText(answer),
-        invalid: answer.kind === 'invalid',
-      });
-    setChecked({ key, review: answer.value.review });
-    setChanged(false);
-    setReview(answer.value.review);
-  }
-
-  async function confirm() {
-    if (!body || !review) return;
-    setBusy(true);
-    setFailure(null);
-    const answer = await acceptGoalMix(api, chain, {
+  // Once the check is in and confirmed, our server checks every line again at today's prices and
+  // stores the plan the order is made for. A few by themselves; after that, on asking.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `storeKey` stands for the check, its hash and the amount
+  useEffect(() => {
+    if (!storeKey || !body || !live || !acked || waiting || pinned) return;
+    if (stored?.key === storeKey || storeFailure?.key === storeKey) return;
+    if (storingFor.current === storeKey) return;
+    if (stores.current >= AUTO_STORES && asked !== storeKey) return;
+    storingFor.current = storeKey;
+    stores.current += 1;
+    setStoring(storeKey);
+    const of = key;
+    void acceptGoalMix(api, chain, {
       ...body,
       confirm: true,
-      acceptedWarnings: acceptedOf(review, ticked),
-      reviewHash: review.reviewHash,
+      acceptedWarnings: acceptedOf(live, ticked),
+      reviewHash: live.reviewHash,
+    }).then((answer) => {
+      // Another store took its place, or the amount changed: the answer, and its plan, are nobody's.
+      if (storingFor.current !== storeKey) return;
+      storingFor.current = null;
+      setStoring(null);
+      if (sending.current.key !== of) return;
+      if (answer.kind !== 'ok')
+        return setStoreFailure({ key: storeKey, text: sending.current.failureText(answer) });
+      if (answer.value.status === 'review') {
+        // The figures moved since the check: the new one is shown, its warnings to confirm again.
+        setMoved(answer.value.review.reviewHash);
+        setChecked({ key: of as string, review: answer.value.review });
+        return;
+      }
+      const { proposalId, proposal } = answer.value;
+      rememberPlan({ id: proposalId, userId, proposal, rollUp: null });
+      setStored({ key: storeKey, planId: proposalId, amountUsd: body.amountUsd });
     });
-    if (answer.kind !== 'ok') {
-      setBusy(false);
-      return setFailure(failureText(answer));
-    }
-    if (answer.value.status === 'review') {
-      // The figures moved since the person looked: the new review, to read and tick again.
-      setBusy(false);
-      setChanged(true);
-      setReview(answer.value.review);
-      return;
-    }
-    const { proposalId, proposal } = answer.value;
-    rememberPlan({ id: proposalId, userId, proposal, rollUp: null });
-    setBusy(false);
-    setConfirmed({ planId: proposalId, amountUsd: body.amountUsd });
-  }
+  }, [storeKey, acked, waiting, pinned, stored, storeFailure, asked, api, chain]);
 
-  // The goal and risk as one sentence: the server's, once it has checked this mix, which names what it
-  // worked out from the mix; until then only what the person said, and nothing where they said neither.
-  const purposeOf = (r: MixReview) =>
-    [
-      d.purpose(r.goal, r.risk ?? said.risk),
-      r.fromMix?.length ? d.fromMix(r.fromMix.includes('goal'), r.fromMix.includes('risk')) : '',
-    ]
-      .filter(Boolean)
-      .join(' ');
-  const purpose = live ? purposeOf(live) : d.purpose(said.goal, said.risk);
-
-  if (confirmed)
-    return (
-      <div ref={root} className="min-w-0">
-        <DepositSign
-          chain={chain}
-          planId={confirmed.planId}
-          amountUsd={confirmed.amountUsd}
-          waiting={waiting}
-          host={host}
-          // "Change" leads back to the amount: the plan stored for the old one is left unsigned.
-          onChange={() => {
-            toAmount.current = true;
-            setConfirmed(null);
-            setReview(null);
-          }}
-          onLeave={onClose}
-        />
-      </div>
-    );
-
-  if (review)
-    return (
-      <div ref={root} data-ui="deposit-review" className="flex min-w-0 flex-col gap-4">
-        <MixReviewCard
-          review={review}
-          ticked={ticked}
-          onTick={tick}
-          confirmLabel={t.mix.goal.confirm}
-          busyLabel={t.mix.goal.confirming}
-          onConfirm={confirm}
-          onBack={() => setReview(null)}
-          backLabel={d.backToDeposit}
-          purpose={purposeOf(review)}
-          focusOnOpen
-          busy={busy}
-          changed={changed}
-        />
-        {failure && (
-          <p
-            role="alert"
-            className="max-w-(--tf-measure-body) whitespace-pre-line text-body-sm text-destructive"
-          >
-            {failure}
-          </p>
-        )}
-      </div>
-    );
+  const ready = stored && stored.key === storeKey && acked ? stored : null;
+  // The deposit on the card: the one approved, else the plan stored for what is on the screen.
+  const plan = pinned ?? ready;
+  const pressed = pinned !== null;
+  const prices = plan && quotes?.planId === plan.planId ? quotes.prices : null;
+  // the pool price is said to be on its way only while an order is actually being made for the plan
+  const quoting = plan !== null && prices === null && placingFor === plan.planId;
+  const capped =
+    storeKey !== null &&
+    acked &&
+    !waiting &&
+    !ready &&
+    storing !== storeKey &&
+    storeFailure?.key !== storeKey &&
+    stores.current >= AUTO_STORES &&
+    asked !== storeKey;
 
   const nameOf = (asset: string) =>
     allocations.find((line) => line.assetId === asset)?.symbol ??
     units?.tokens[asset]?.symbol ??
     displayName(asset, t.plan);
-  const dollarsOf = (asset: string) =>
-    live?.lines.find((line) => line.assetId === asset)?.amountUsd ?? null;
+  const lineOf = (asset: string) => live?.lines.find((line) => line.assetId === asset) ?? null;
   const held = (lines ?? start).filter((line) => line.weightBps > 0);
   const left = cashLeft(held);
+  const factsOf = (asset: string) => {
+    const line = lineOf(asset);
+    return line && line.cls !== 'cash' ? (
+      <DepositFacts line={line} quote={prices?.get(asset) ?? null} quoting={quoting} now={now} />
+    ) : undefined;
+  };
   const rows: MixRow[] = [
     ...held.map((line) => ({
       assetId: line.assetId,
       name: nameOf(line.assetId),
       weightBps: line.weightBps,
-      amountUsd: dollarsOf(line.assetId),
+      amountUsd: lineOf(line.assetId)?.amountUsd ?? null,
+      facts: factsOf(line.assetId),
     })),
     ...(cash && left > 0
-      ? [{ assetId: cash, name: t.mix.review.cash, weightBps: left, amountUsd: dollarsOf(cash) }]
+      ? [
+          {
+            assetId: cash,
+            name: t.mix.review.cash,
+            weightBps: left,
+            amountUsd: lineOf(cash)?.amountUsd ?? null,
+          },
+        ]
       : []),
   ];
-  // Why the press does nothing yet, in the order a person would fix it.
+  // Why there is no press yet, in the order a person would fix it.
   const blocked = !cash
     ? t.mix.failure.readOnly
     : waiting
@@ -360,21 +351,43 @@ export function DepositStep({
         ? d.blocked.weights
         : amount === null
           ? d.blocked.amount
-          : null;
-  const status = refused
-    ? null
-    : live
-      ? d.checked
-      : key !== null
-        ? d.checking
-        : amount === null
-          ? amountError
-            ? null
-            : d.needAmount
-          : null;
+          : refused
+            ? d.blocked.refused
+            : !live
+              ? d.blocked.checking
+              : !acked
+                ? d.blocked.ack
+                : capped
+                  ? d.blocked.ask
+                  : null;
+  const storeFailed = storeFailure && storeFailure.key === storeKey ? storeFailure.text : null;
+  // once the order is on the card, its own line of costs says where things stand
+  const status =
+    refused || plan
+      ? null
+      : // while the plan is stored the press says so; this line stays as it was, so nothing moves
+        live
+        ? d.checked
+        : key !== null
+          ? d.checking
+          : amount === null
+            ? amountError
+              ? null
+              : d.needAmount
+            : null;
+
+  /** What the conversation is told, with the plan a press approves pinned to the card. */
+  const hostOf = (of: Stored): DepositHost => ({
+    onOpen: (open) => {
+      setPinned((was) => was ?? of);
+      host.onOpen(open);
+    },
+    onRunning: host.onRunning,
+    onLeave: host.onLeave,
+  });
 
   return (
-    <div ref={root} data-ui="deposit-step" className="min-w-0">
+    <div ref={root} data-ui="deposit-step" data-pressed={pressed || undefined} className="min-w-0">
       <Card
         as="section"
         aria-labelledby={titleId}
@@ -385,133 +398,137 @@ export function DepositStep({
       >
         <CardHeader id={titleId} title={d.title} level={2} meta={t.chain.names[chain]} />
         <CardBody className="flex min-w-0 flex-col gap-5">
-          {purpose && (
-            <p
-              data-ui="deposit-purpose"
-              className="flex flex-wrap items-baseline gap-x-3 text-body"
-            >
-              <span>{purpose}</span>
-              <Button variant="link" aria-label={d.changePurposeLabel} onClick={onChangeMix}>
-                {d.changePurpose}
-              </Button>
-            </p>
+          {!pressed && (
+            <>
+              <div className="flex min-w-0 flex-col gap-2">
+                {/* The amount card's field (gate AMOUNT-CARD): the figure large, the chain's dollar
+                    beside it, and the wallet's balance with Max; no quick amounts (Thom, Oct 28). */}
+                <AmountWell
+                  label={t.amount.field.deposit}
+                  onBlur={() => setSettled(true)}
+                  text={amountText}
+                  onText={onAmountText}
+                  hint={d.limits}
+                  token={
+                    cash && units?.tokens[cash]
+                      ? {
+                          asset: cash,
+                          symbol: units.tokens[cash].symbol,
+                          name: t.amount.token(units.tokens[cash].symbol),
+                        }
+                      : null
+                  }
+                  balance={
+                    !owner
+                      ? undefined
+                      : wallet.kind === 'read'
+                        ? {
+                            label: t.amount.balance.wallet,
+                            state: 'read',
+                            figure: shownBalance(
+                              wallet.cash.amount,
+                              wallet.cash.symbol,
+                              LOCALE[lang],
+                            ),
+                            obs: wallet.cash.obs,
+                            ...(wallet.cash.amount >= MIN_USD
+                              ? {
+                                  onMax: () =>
+                                    onAmountText(
+                                      maxText(Math.min(wallet.cash.amount, MAX_USD), lang),
+                                    ),
+                                }
+                              : {}),
+                          }
+                        : wallet.kind === 'failed'
+                          ? { label: t.amount.balance.wallet, state: 'failed' }
+                          : { label: t.amount.balance.wallet, state: 'reading' }
+                  }
+                  problem={amountError ?? null}
+                />
+              </div>
+
+              <div className="flex min-w-0 flex-col gap-2">
+                <h3 className="flex flex-wrap items-baseline gap-x-3 text-caption font-medium">
+                  {d.mix}
+                  {edited && (
+                    <span data-ui="deposit-edited" className="font-normal text-muted-foreground">
+                      {d.edited}
+                    </span>
+                  )}
+                </h3>
+                {/* measured facts of this vault at this amount, once the server checked it */}
+                {live && !broken && <DepositSummary review={live} />}
+                {broken ? (
+                  <p data-ui="deposit-broken" className="text-body-sm">
+                    {d.brokenMix}
+                  </p>
+                ) : (
+                  <MixLines rows={rows} caption={d.mix} amounts narrow />
+                )}
+                {status && !broken && (
+                  <p
+                    role="status"
+                    data-ui="deposit-check"
+                    className="text-caption text-muted-foreground"
+                  >
+                    {status}
+                  </p>
+                )}
+                {live && moved === live.reviewHash && (
+                  <p
+                    role="status"
+                    data-ui="deposit-moved"
+                    className="flex items-start gap-1.5 text-body-sm"
+                  >
+                    <StatusMark status="watch" className="mt-1.5" />
+                    <span>{t.mix.review.changed}</span>
+                  </p>
+                )}
+                {refused && (
+                  <div
+                    role="alert"
+                    data-ui="deposit-refused"
+                    className="flex max-w-(--tf-measure-body) flex-col items-start gap-2 text-body-sm"
+                  >
+                    <p className="flex items-start gap-1.5 text-destructive">
+                      <StatusMark status="off-track" size={12} className="mt-1.5" />
+                      <span className="whitespace-pre-line">
+                        {refused.failure}
+                        {refused.invalid && `\n${d.invalidNext}`}
+                      </span>
+                    </p>
+                    {!refused.invalid && (
+                      <Button
+                        variant="secondary"
+                        data-action="deposit-check-again"
+                        onClick={() => {
+                          setChecked(null);
+                          setRound((n) => n + 1);
+                        }}
+                      >
+                        {d.checkAgain}
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {live && live.warnings.length > 0 && (
+                // Every warning in one short list with one box for all of them (gate SIGN-ONE-STEP):
+                // the plan is stored only once it is ticked, and a review whose figures moved starts
+                // with it unticked.
+                <MixReviewAck review={live} ticked={ticked} onTick={tick} named={nameOf} />
+              )}
+            </>
           )}
 
-          <div inert={busy} className="flex min-w-0 flex-col gap-2">
-            {/* The amount card's field (gate AMOUNT-CARD): the figure large, the chain's dollar
-                beside it, and the wallet's balance with Max; no quick amounts (Thom, Oct 28). */}
-            <AmountWell
-              label={t.amount.field.deposit}
-              locked={busy}
-              onBlur={() => setSettled(true)}
-              text={amountText}
-              onText={onAmountText}
-              hint={d.limits}
-              token={
-                cash && units?.tokens[cash]
-                  ? {
-                      asset: cash,
-                      symbol: units.tokens[cash].symbol,
-                      name: t.amount.token(units.tokens[cash].symbol),
-                    }
-                  : null
-              }
-              balance={
-                !owner
-                  ? undefined
-                  : wallet.kind === 'read'
-                    ? {
-                        label: t.amount.balance.wallet,
-                        state: 'read',
-                        figure: shownBalance(wallet.cash.amount, wallet.cash.symbol, LOCALE[lang]),
-                        obs: wallet.cash.obs,
-                        ...(wallet.cash.amount >= MIN_USD
-                          ? {
-                              onMax: () =>
-                                onAmountText(maxText(Math.min(wallet.cash.amount, MAX_USD), lang)),
-                            }
-                          : {}),
-                      }
-                    : wallet.kind === 'failed'
-                      ? { label: t.amount.balance.wallet, state: 'failed' }
-                      : { label: t.amount.balance.wallet, state: 'reading' }
-              }
-              problem={amountError ?? null}
-            />
-          </div>
-
-          <div className="flex min-w-0 flex-col gap-2">
-            <h3 className="flex flex-wrap items-baseline gap-x-3 text-caption font-medium">
-              {d.mix}
-              {edited && (
-                <span data-ui="deposit-edited" className="font-normal text-muted-foreground">
-                  {d.edited}
-                </span>
-              )}
-            </h3>
-            {broken ? (
-              <p data-ui="deposit-broken" className="text-body-sm">
-                {d.brokenMix}
-              </p>
-            ) : (
-              <MixLines rows={rows} caption={d.mix} amounts />
-            )}
-            {status && !broken && (
-              <p
-                role="status"
-                data-ui="deposit-check"
-                className="text-caption text-muted-foreground"
-              >
-                {status}
-              </p>
-            )}
-            {refused && (
-              <div
-                role="alert"
-                data-ui="deposit-refused"
-                className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
-              >
-                <StatusMark status="off-track" size={12} className="mt-1.5" />
-                <p className="whitespace-pre-line">
-                  {refused.failure}
-                  {refused.invalid && `\n${d.invalidNext}`}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-              <Button
-                variant="primary"
-                data-action="deposit-review"
-                busy={busy}
-                busyLabel={d.reviewing}
-                busyMark
-                disabled={blocked !== null}
-                aria-describedby={blocked !== null && tried ? reasonId : undefined}
-                onDisabledClick={() => setTried(true)}
-                onClick={toReview}
-              >
-                {amount === null ? d.review : d.reviewOf(dollars(amount, lang))}
-              </Button>
-              <Button variant="secondary" data-action="change-mix" onClick={onChangeMix}>
-                {d.changeMix}
-              </Button>
-            </div>
-            {blocked !== null && tried && (
-              <p id={reasonId} role="status" className="text-body-sm">
-                {blocked}
-              </p>
-            )}
-            <p className="max-w-(--tf-measure-body) text-caption text-muted-foreground">
-              {d.next} {d.balance}
-            </p>
-          </div>
-
-          {cash && (
+          {!pressed && cash && (
             <div className="flex min-w-0 flex-col gap-3 border-t border-border pt-4">
-              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+                <Button variant="secondary" data-action="change-mix" onClick={onChangeMix}>
+                  {d.changeMix}
+                </Button>
                 <Button
                   variant="link"
                   data-action="edit-by-hand"
@@ -530,12 +547,7 @@ export function DepositStep({
                   {d.backToProposal}
                 </Button>
               </div>
-              <div
-                id={editorId}
-                hidden={!editing}
-                inert={busy}
-                className="flex min-w-0 flex-col gap-3"
-              >
+              <div id={editorId} hidden={!editing} className="flex min-w-0 flex-col gap-3">
                 {editing && (
                   <>
                     <p className="max-w-(--tf-measure-body) text-body-sm">{d.editorLead}</p>
@@ -555,6 +567,96 @@ export function DepositStep({
                   </>
                 )}
               </div>
+            </div>
+          )}
+          {plan && (
+            <div className="min-w-0">
+              <DepositSign
+                key={plan.planId}
+                inline
+                chain={chain}
+                planId={plan.planId}
+                amountUsd={plan.amountUsd}
+                waiting={waiting}
+                host={hostOf(plan)}
+                onLeave={onClose}
+                foot={pressed ? null : foot}
+                onQuoting={(now: boolean) =>
+                  setPlacingFor((was) => (now ? plan.planId : was === plan.planId ? null : was))
+                }
+                onOrder={(order: OrderDetail | null) =>
+                  setQuotes(
+                    order ? { planId: plan.planId, prices: quotePrices(order, units) } : null,
+                  )
+                }
+              />
+            </div>
+          )}
+          {!pressed && (
+            // The press, the order's costs and what holds the press, at the foot of the card: where
+            // the pane scrolls, this stays in view under the rows (audit I3), so the one screen never
+            // hides its button. The order's own screen draws them here (OrderScreen, `embed.foot`).
+            <div
+              ref={setFoot}
+              data-ui="deposit-foot"
+              // held, as the steps above it are, while a reply is on its way (DEPOSIT-IN-PLACE)
+              inert={waiting}
+              className="flex min-w-0 flex-col gap-3 empty:hidden md:sticky md:bottom-0 md:z-10 md:-mx-6 md:-mb-6 md:rounded-b-lg md:border-t md:border-border md:bg-card md:px-6 md:pt-4 md:pb-6"
+            >
+              {!plan && (
+                <div className="flex flex-col items-start gap-3">
+                  <Button
+                    variant="primary"
+                    data-action="deposit-press"
+                    busy={storing !== null && storing === storeKey}
+                    busyLabel={d.saving}
+                    busyMark
+                    disabled
+                    aria-describedby={blocked !== null ? reasonId : undefined}
+                    onDisabledClick={() => setTried(true)}
+                  >
+                    {amount === null ? d.press : t.invest.press(dollars(amount, lang))}
+                  </Button>
+                  {/* the line keeps its room while it has nothing to say, so the press never
+                      moves as the reason comes and goes */}
+                  <p id={reasonId} role="status" className="min-h-[1lh] text-body-sm">
+                    {blocked !== null && (blocked !== d.blocked.amount || tried) ? blocked : ''}
+                  </p>
+                  {capped && (
+                    <Button
+                      variant="secondary"
+                      data-action="deposit-again"
+                      onClick={() => setAsked(storeKey)}
+                    >
+                      {d.again}
+                    </Button>
+                  )}
+                  {storeFailed && (
+                    <div
+                      role="alert"
+                      data-ui="deposit-store-failed"
+                      className="flex max-w-(--tf-measure-body) flex-col items-start gap-2 text-body-sm"
+                    >
+                      <p className="flex items-start gap-1.5 text-destructive">
+                        <StatusMark status="off-track" size={12} className="mt-1.5" />
+                        <span className="whitespace-pre-line">{storeFailed}</span>
+                      </p>
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setStoreFailure(null);
+                          setAsked(storeKey);
+                        }}
+                      >
+                        {d.checkAgain}
+                      </Button>
+                    </div>
+                  )}
+                  <p className="max-w-(--tf-measure-body) text-caption text-muted-foreground">
+                    {d.next} {d.balance}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </CardBody>

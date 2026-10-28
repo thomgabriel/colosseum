@@ -2556,39 +2556,22 @@ export const pt: Dictionary = {
       goals: { grow: 'Fazer crescer', income: 'Renda mensal', protect: 'Manter seguro' },
       risks: { low: 'Baixo', medium: 'Médio', high: 'Alto' },
       choose: 'Escolha um',
-      confirm: 'Confirmar depósito',
-      confirming: 'Conferindo e salvando…',
     },
     deposit: {
       title: 'Depositar no seu cofre',
-      purpose: (
-        goal: 'grow' | 'income' | 'protect' | null,
-        risk: 'low' | 'medium' | 'high' | null,
-      ) => {
-        const goals = {
-          grow: 'Para crescer',
-          income: 'Para renda mensal',
-          protect: 'Para manter seguro',
-        };
-        const risks = {
-          low: 'com risco mais baixo',
-          medium: 'com risco médio',
-          high: 'com risco mais alto',
-        };
-        if (goal && risk) return `${goals[goal]}, ${risks[risk]}.`;
-        if (goal) return `${goals[goal]}.`;
-        return risk ? `C${risks[risk].slice(1)}.` : '';
-      },
       /** The dollar sign before the amount, as this language writes it. */
       currency: 'US$',
-      changePurpose: 'Mudar',
-      changePurposeLabel: 'Mudar o objetivo ou o risco na conversa',
-      fromMix: (goal: boolean, risk: boolean) =>
-        goal && risk
-          ? 'Os dois calculados a partir dos ativos que você escolheu.'
-          : goal
-            ? 'O objetivo é calculado a partir dos ativos que você escolheu.'
-            : 'O risco é calculado a partir dos ativos que você escolheu.',
+      summary: {
+        holdings: (n: number) => (n === 1 ? '1 ativo' : `${n} ativos`),
+        worstExit: 'pior custo de saída de um ativo no seu valor:',
+        within: 'todo ativo dentro do que consegue vender',
+        over: (n: number) =>
+          n === 1
+            ? '1 ativo acima do que consegue vender como planejado'
+            : `${n} ativos acima do que conseguem vender como planejado`,
+        tier: (n: number) =>
+          n === 1 ? '1 pela faixa, não medido' : `${n} pela faixa, não medidos`,
+      },
       limits: 'De US$ 1 a US$ 1.000.000.',
       mix: 'O que seu cofre vai guardar',
       edited: 'Editada à mão',
@@ -2597,11 +2580,22 @@ export const pt: Dictionary = {
       needAmount: 'Digite um valor para ver quanto vai para cada ativo.',
       checking: 'Conferindo com os preços de hoje…',
       checked: 'Conferido com os preços de hoje. Nada foi depositado ainda.',
-      review: 'Revisar o depósito',
-      reviewOf: (amount: string) => `Revisar o depósito de ${amount}`,
-      reviewing: 'Conferindo os preços de hoje…',
       changeMix: 'Mudar os ativos',
-      next: 'Nada foi depositado nem assinado ainda. Em seguida você confere a revisão e assina cada passo aqui.',
+      next: 'Nada é depositado até você apertar o botão. Antes, nosso servidor confere cada linha de novo com os preços de hoje.',
+      press: 'Depositar',
+      saving: 'Buscando as cotações de hoje…',
+      again: 'Conferir os preços de hoje de novo',
+      checkAgain: 'Conferir de novo',
+      facts: {
+        pool: 'Pool',
+        feed: 'Referência',
+        gap: (pct: string) => `diferença ${pct}`,
+        poolLater: 'preço do pool vem com a cotação',
+        exitCost: 'Custo de saída neste valor',
+        exitUpTo: 'Sai como planejado até',
+        measured: (ago: string) => `medido ${ago}`,
+        tier: 'faixa de reserva, não medido',
+      },
       brokenMix:
         'Os pesos no editor ainda não fecham, então não há ativos para mostrar. Corrija abaixo, ou volte aos pesos propostos.',
       balance: 'O saldo da sua carteira é conferido antes de você assinar.',
@@ -2625,12 +2619,15 @@ export const pt: Dictionary = {
         'Digite um peso para cada ativo, em porcentagem. O que você deixar sem atribuir fica em caixa. Os pesos daqui são os que eu confiro.',
       reset: 'Voltar aos pesos propostos',
       backToProposal: 'Voltar à proposta',
-      backToDeposit: 'Voltar ao depósito',
       invalidNext: 'Peça uma mudança na conversa, ou edite os pesos à mão.',
       blocked: {
         reply: 'Espere a resposta na conversa primeiro.',
         weights: 'Corrija os pesos no editor primeiro.',
         amount: 'Digite um valor primeiro.',
+        checking: 'Espere a conferência com os preços de hoje.',
+        ack: 'Confirme os avisos acima primeiro.',
+        refused: 'A conferência encontrou algo para corrigir primeiro.',
+        ask: 'Estes preços já foram conferidos algumas vezes: peça novos.',
       },
       errors: {
         notAmount: 'Digite um valor em dólares, como 250 ou 250,50.',

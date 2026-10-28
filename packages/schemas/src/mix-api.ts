@@ -115,6 +115,15 @@ export const MixReviewLine = z.strictObject({
    * counts on, or, where nothing is measured, the tier's ceiling (`measured` false). Null for cash.
    */
   exitCeiling: Sourced.extend({ usd: z.number().nonnegative(), measured: z.boolean() }).nullable(),
+  /**
+   * What selling this line's amount costs, in basis points, in the worst measured time of the exit
+   * window, from the same measured curves as `exitCeiling` (gate DEPOSIT-ONE-SCREEN). Left out where
+   * the exit is not measured, for cash, and beyond the largest size measured: never zero for unknown.
+   */
+  exitCost: Sourced.extend({
+    bps: z.number().nonnegative(),
+    sizeUsd: z.number().nonnegative(),
+  }).optional(),
 });
 export type MixReviewLine = z.infer<typeof MixReviewLine>;
 

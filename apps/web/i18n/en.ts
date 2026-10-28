@@ -2906,38 +2906,22 @@ export const en = {
       goals: { grow: 'Make it grow', income: 'Monthly income', protect: 'Keep it safe' },
       risks: { low: 'Low', medium: 'Medium', high: 'High' },
       choose: 'Choose one',
-      confirm: 'Confirm deposit',
-      /** The confirm checks the draft against the review once more, then stores the plan. */
-      confirming: 'Checking and saving…',
     },
     deposit: {
       title: 'Deposit into your vault',
-      /** What the person said in the conversation, as one sentence: "For growth, at higher risk." */
-      purpose: (
-        goal: 'grow' | 'income' | 'protect' | null,
-        risk: 'low' | 'medium' | 'high' | null,
-      ) => {
-        const goals = {
-          grow: 'For growth',
-          income: 'For monthly income',
-          protect: 'To keep it safe',
-        };
-        const risks = { low: 'at lower risk', medium: 'at medium risk', high: 'at higher risk' };
-        if (goal && risk) return `${goals[goal]}, ${risks[risk]}.`;
-        if (goal) return `${goals[goal]}.`;
-        return risk ? `A${risks[risk].slice(1)}.` : '';
-      },
       /** The dollar sign before the amount, as this language writes it. */
       currency: '$',
-      changePurpose: 'Change',
-      changePurposeLabel: 'Change the goal or the risk in the conversation',
-      /** After the purpose: which of the two the server worked out from the mix, not the person's words. */
-      fromMix: (goal: boolean, risk: boolean): string =>
-        goal && risk
-          ? 'Both worked out from the holdings you chose.'
-          : goal
-            ? 'The goal is worked out from the holdings you chose.'
-            : 'The risk is worked out from the holdings you chose.',
+      /** One line of measured facts of the vault at this amount, over its rows (no goal or risk label). */
+      summary: {
+        holdings: (n: number) => (n === 1 ? '1 holding' : `${n} holdings`),
+        worstExit: 'worst exit cost of one holding at its size:',
+        within: 'every holding within what it can sell',
+        over: (n: number) =>
+          n === 1
+            ? '1 holding above what it can sell as planned'
+            : `${n} holdings above what they can sell as planned`,
+        tier: (n: number) => (n === 1 ? '1 by tier, not measured' : `${n} by tier, not measured`),
+      },
       limits: 'From $1 to $1,000,000.',
       mix: 'What your vault will hold',
       edited: 'Edited by hand',
@@ -2946,11 +2930,28 @@ export const en = {
       needAmount: 'Type an amount to see what goes into each asset.',
       checking: 'Checking at today’s prices…',
       checked: 'Checked at today’s prices. Nothing is deposited yet.',
-      review: 'Review deposit',
-      reviewOf: (amount: string) => `Review deposit of ${amount}`,
-      reviewing: 'Checking at today’s prices…',
       changeMix: 'Change the holdings',
-      next: 'Nothing is deposited or signed yet. Next you check the review, then sign each step here.',
+      next: 'Nothing is deposited until you press the button. Our server checks every line again at today’s prices first.',
+      /** The press before the order is made: held, and what it waits for said under it. */
+      press: 'Deposit',
+      /** While our server stores the plan for this amount and the order is quoted. */
+      saving: 'Getting today’s quotes…',
+      /** After a few quotes made by themselves: one more, on asking. */
+      again: 'Check today’s prices again',
+      checkAgain: 'Check again',
+      /** What each holding's row says under its name (gate DEPOSIT-ONE-SCREEN). */
+      facts: {
+        /** The price the vault buys at: the order's own quote. */
+        pool: 'Pool',
+        /** The reference feed's price, the one the review counts with. */
+        feed: 'Feed',
+        gap: (pct: string) => `gap ${pct}`,
+        poolLater: 'pool price with the quote',
+        exitCost: 'Exit cost at this size',
+        exitUpTo: 'Exits as planned up to',
+        measured: (ago: string) => `measured ${ago}`,
+        tier: 'tier fallback, not measured',
+      },
       brokenMix:
         'The weights in the editor don’t add up yet, so there are no holdings to show. Fix them below, or go back to the proposed weights.',
       balance: 'Your wallet’s balance is checked before you sign.',
@@ -2975,12 +2976,15 @@ export const en = {
         'Type a weight for each asset, in percent. Whatever you leave unassigned stays in cash. The weights here are the ones I check.',
       reset: 'Back to the proposed weights',
       backToProposal: 'Back to the proposal',
-      backToDeposit: 'Back to the deposit',
       invalidNext: 'Ask for a change in the conversation, or edit the weights by hand.',
       blocked: {
         reply: 'Wait for the reply in the conversation first.',
         weights: 'Fix the weights in the editor first.',
         amount: 'Type an amount first.',
+        checking: 'Wait for the check at today’s prices.',
+        ack: 'Confirm the warnings above first.',
+        refused: 'The check found something to fix first.',
+        ask: 'These prices were checked a few times already: ask for new ones.',
       },
       errors: {
         notAmount: 'Type an amount in dollars, such as 250 or 250.50.',

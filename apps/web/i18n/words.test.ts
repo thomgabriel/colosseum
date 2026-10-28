@@ -50,7 +50,7 @@ describe('the words of the product: vault and deposit, never mix or buy', () => 
   it('reads the dictionaries: thousands of sentences, the made ones among them', () => {
     expect(all.length).toBeGreaterThan(2000);
     expect(all.some(([path]) => path.endsWith('()'))).toBe(true);
-    expect(all.map(([, said]) => said)).toContain(en.mix.goal.confirm);
+    expect(all.map(([, said]) => said)).toContain(en.mix.deposit.title);
     expect(all.map(([, said]) => said)).toContain(en.invest.press('Name'));
   });
 
@@ -110,7 +110,7 @@ const todas = [
 describe('as palavras do produto: cofre e depósito, nunca compra ou mistura', () => {
   it('reads the Portuguese dictionaries, the made sentences among them', () => {
     expect(todas.length).toBeGreaterThan(2000);
-    expect(todas.map(([, said]) => said)).toContain(pt.mix.goal.confirm);
+    expect(todas.map(([, said]) => said)).toContain(pt.mix.deposit.title);
   });
 
   it('finds none', () => {

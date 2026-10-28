@@ -1,5 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { batchTrades, RebalanceError, rebalancePlan, view } from '@colosseum/basket';
+import {
+  batchTrades,
+  EXIT_WINDOW_DAYS,
+  RebalanceError,
+  rebalancePlan,
+  view,
+} from '@colosseum/basket';
 import {
   eligibleForGoal,
   fixedMix,
@@ -306,6 +312,7 @@ export function reviewMix(
     const amountUsd = (cents[i] ?? 0) / 100;
     const price = checked.prices.get(asset.id);
     let exitCeiling: MixReviewLine['exitCeiling'] = null;
+    let exitCost: MixReviewLine['exitCost'];
     const { ceiling } = fixedLine;
     if (ceiling) {
       const measured = liquidityOf.get(asset.id);
@@ -327,6 +334,19 @@ export function reviewMix(
             provenance: tier?.provenance ?? asset.provenance,
           };
       if (from) exitCeiling = { ...from, usd: ceiling.usd, measured: ceiling.measured };
+      // The cost of selling this line's amount, from the same measured curves: only where the exit is
+      // measured and sourced, and the curves reach this size (null beyond it is left out, never 0).
+      const sells =
+        ceiling.measured && from && figures.liquidity && amountUsd > 0
+          ? figures.liquidity.provider.exitCost(asset.id, amountUsd, EXIT_WINDOW_DAYS)
+          : null;
+      if (from && sells !== null && Number.isFinite(sells) && sells >= 0)
+        exitCost = {
+          ...from,
+          method: `the cost of selling this amount in the worst measured time of a ${EXIT_WINDOW_DAYS}-day window, on the measured exit curves (${from.method})`,
+          bps: Math.round(sells * 1_000_000) / 100,
+          sizeUsd: amountUsd,
+        };
       if (amountUsd > ceiling.usd)
         warn(
           ceiling.measured ? 'EXIT_OVER_CAPACITY' : 'EXIT_OVER_TIER_CEILING',
@@ -403,6 +423,7 @@ export function reviewMix(
               provenance: price.provenance,
             },
       exitCeiling,
+      ...(exitCost ? { exitCost } : {}),
     };
   });
   if (a.vault && (a.vault.recipeOnchainId !== null || a.vault.autoFollow))

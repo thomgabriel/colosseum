@@ -157,4 +157,17 @@ export type OrderEmbed = {
    * "done" over it only then.
    */
   onEnded?: (plainly: boolean) => void;
+  /**
+   * The host already shows the amount and where each dollar goes (the one-screen deposit on /invest,
+   * gate DEPOSIT-ONE-SCREEN): the review leaves out its large line and its table of where the deposit
+   * goes, and says its costs in one line. Everything that decides what is signed is unchanged.
+   */
+  compact?: boolean;
+  /** The order as our server made it, each time it is read for the review: the host reads its quotes. */
+  onOrder?: (order: OrderDetail) => void;
+  /**
+   * Where the host draws the review's costs and its press (the foot of its card, which stays in view
+   * where its pane scrolls). The same buttons and the same handlers, drawn elsewhere; only the review.
+   */
+  foot?: HTMLElement;
 };

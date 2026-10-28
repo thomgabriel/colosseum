@@ -127,3 +127,24 @@ export async function pressInView(page: Page, name: string, o: { scroll?: boolea
   }
   if (before) await page.setViewportSize(before);
 }
+
+/**
+ * The one-screen deposit on /invest (gate DEPOSIT-ONE-SCREEN), once its plan is stored: the wallet
+ * short, filled with the mock's cash on the card, the order's costs at the card's foot, and the
+ * notice ticked. It ends with the press ready, at the foot: nothing has been signed.
+ */
+export async function readyOnOneScreen(page: Page, dollars: string) {
+  const step = page.locator('[data-ui="deposit-step"]');
+  const card = step.locator('[data-ui="invest-card"]');
+  const foot = step.locator('[data-ui="deposit-foot"]');
+  const press = foot.getByRole('button', { name: en.invest.press(dollars) });
+  await expect(card.locator('[data-ui="funding-step"]')).toBeVisible();
+  await expect(press).toHaveAttribute('aria-disabled', 'true');
+  await card.getByRole('button', { name: en.buy.funding.mockFund }).click();
+  await expect(foot.locator('[data-ui="order-costs"]')).toBeVisible({ timeout: 30_000 });
+  await expect(card.locator('[data-ui="order-step"]').first()).toBeAttached();
+  await expect(press).toHaveAttribute('aria-disabled', 'true');
+  await page.getByLabel(en.trust.accept).check();
+  await expect(press).not.toHaveAttribute('aria-disabled', 'true');
+  return press;
+}
