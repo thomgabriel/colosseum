@@ -66,6 +66,7 @@ import { buildConfig, registerConfigRoute } from './config';
 import { registerFundingRoute } from './funding';
 import { registerGoalConversationReplyRoute } from './goal-conversation-reply';
 import { registerIntakeRoute } from './intake';
+import { registerLeaderboardRoute } from './leaderboard';
 import { registerMeRoutes } from './me';
 import { registerMixRoutes } from './mix';
 import { registerMockRoutes } from './mock';
@@ -381,6 +382,7 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     });
     registerConfigRoute(scope, config);
     registerStatsRoute(scope, orderDeps);
+    registerLeaderboardRoute(scope, orderDeps);
     registerMeRoutes(scope, orderDeps);
     registerFundingRoute(scope, orderDeps, testFunds ?? undefined);
     registerTestnetRoute(scope, orderDeps, testFunds);
