@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardEmpty } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
+import { type AgeWords, formatAge, sayAge } from '../../components/ui/format';
 import { PAGE_TITLE } from '../../components/ui/heading';
 import {
   KIT_ABOVE_LINK,
@@ -39,11 +40,13 @@ import { shortAddress } from '../shared/use-person';
 
 type Load =
   | { kind: 'loading' }
-  | { kind: 'read'; answer: LeaderboardResponse }
+  | { kind: 'read'; answer: LeaderboardResponse; now: number }
   | { kind: 'unreachable' | 'unreadable' };
 
 /** The answer, or why there is none. Public: no sign-in is sent. */
-export async function readLeaderboard(): Promise<Exclude<Load, { kind: 'loading' }>> {
+export async function readLeaderboard(): Promise<
+  { kind: 'read'; answer: LeaderboardResponse } | { kind: 'unreachable' | 'unreadable' }
+> {
   let res: Response;
   try {
     res = await fetch(`${API}/v1/leaderboard?chain=solana`, {
@@ -55,6 +58,12 @@ export async function readLeaderboard(): Promise<Exclude<Load, { kind: 'loading'
   if (!res.ok) return { kind: 'unreachable' };
   const read = Schema.safeParse(await res.json().catch(() => null));
   return read.success ? { kind: 'read', answer: read.data } : { kind: 'unreadable' };
+}
+
+/** How long before `now` a snapshot was read, in the pin's units: "4 min ago", "3 days ago". */
+export function readAgo(fetchedAt: string, now: number, words: AgeWords): string {
+  const age = formatAge(Math.max(0, (now - Date.parse(fetchedAt)) / 1000));
+  return age ? sayAge(age, words) : '—';
 }
 
 const UP = 'text-success';
@@ -86,7 +95,8 @@ export function LeaderboardScreen() {
     let mine = true;
     setLoad({ kind: 'loading' });
     readLeaderboard().then((read) => {
-      if (mine) setLoad(read);
+      // what "4 min ago" counts from: when the answer reached this page
+      if (mine) setLoad(read.kind === 'read' ? { ...read, now: Date.now() } : read);
     });
     return () => {
       mine = false;
@@ -126,13 +136,13 @@ export function LeaderboardScreen() {
           <CardEmpty sentence={w.empty(load.answer.name)} />
         </Card>
       ) : (
-        <Board answer={load.answer} />
+        <Board answer={load.answer} now={load.now} />
       )}
     </div>
   );
 }
 
-function Board({ answer }: { answer: LeaderboardResponse }) {
+function Board({ answer, now }: { answer: LeaderboardResponse; now: number }) {
   const t = useT();
   const w = t.leaderboard;
   const table = w.table;
@@ -178,7 +188,7 @@ function Board({ answer }: { answer: LeaderboardResponse }) {
         }
       >
         {answer.vaults.map((row) => (
-          <Row key={`${row.chain}:${row.address}`} row={row} />
+          <Row key={`${row.chain}:${row.address}`} row={row} now={now} />
         ))}
       </KitTable>
     </Panel>
@@ -192,7 +202,7 @@ function Board({ answer }: { answer: LeaderboardResponse }) {
 export const titleOf = (row: LeaderboardRow, w: ReturnType<typeof useT>['leaderboard']) =>
   w.unnamed(shortAddress(row.address));
 
-function Row({ row }: { row: LeaderboardRow }) {
+function Row({ row, now }: { row: LeaderboardRow; now: number }) {
   const t = useT();
   const lang = useLang();
   const w = t.leaderboard;
@@ -299,7 +309,14 @@ function Row({ row }: { row: LeaderboardRow }) {
         data-ui="leaderboard-read"
         className={cn(KIT_CELL, 'text-caption whitespace-nowrap text-muted-foreground')}
       >
-        {row.value ? localTime(lang, row.value.fetchedAt) : '—'}
+        {row.value ? (
+          // how long ago, with the instant itself on hover
+          <time dateTime={row.value.fetchedAt} title={localTime(lang, row.value.fetchedAt)}>
+            {readAgo(row.value.fetchedAt, now, w.ago)}
+          </time>
+        ) : (
+          '—'
+        )}
       </td>
     </tr>
   );

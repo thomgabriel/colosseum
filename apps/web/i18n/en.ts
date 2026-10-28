@@ -2045,7 +2045,7 @@ export const en = {
       missing: 'There is no vault at this address.',
       back: 'Back to your portfolio',
       /** A visitor's way back: they have no portfolio here. */
-      backVisitor: 'Back to Products',
+      backVisitor: 'Back to the leaderboard',
       unreachable: 'I couldn’t read this vault: our server didn’t answer. Try again.',
       chainOff: (chain: string) =>
         `${chain} is switched off on our server for now, so this vault can’t be read here.`,
@@ -3073,10 +3073,10 @@ export const en = {
   /** The leaderboard (/leaderboard): every open vault on a chain, ranked by what it made. */
   leaderboard: {
     title: 'Leaderboard',
-    description: 'Every open vault, ranked by what it made against what went into it.',
+    description: 'Every open vault, ranked by what it made against what was deposited into it.',
     lead: (chain: string) =>
-      `Every open vault on ${chain}, ranked by what it made as a share of what went into it.`,
-    rule: 'What went in is the deposits made in this app, less withdrawals. A vault with no deposit made in this app comes last.',
+      `Every open vault on ${chain}, ranked by what it made as a share of what was deposited into it.`,
+    rule: 'What a vault made is its value now plus what was taken out, less the deposits made in this app. A vault with no deposit made in this app comes last.',
     loading: 'Reading the vaults…',
     empty: (chain: string) => `No vault is open on ${chain} yet.`,
     failure: {
@@ -3100,6 +3100,13 @@ export const en = {
     open: (title: string) => `Open ${title}`,
     more: (count: number) => `+${count} more`,
     noDeposit: 'No deposit made in this app',
+    /** When a vault was last read, counted back from now: `{n}` the count, `{unit}` its word. */
+    ago: {
+      said: '{n} {unit} ago',
+      minute: ['min', 'min'],
+      hour: ['h', 'h'],
+      day: ['day', 'days'],
+    },
     neverRead: 'Not read yet',
     unvalued: (count: number) =>
       count === 1

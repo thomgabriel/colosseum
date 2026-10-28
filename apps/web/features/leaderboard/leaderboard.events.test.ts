@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { click, find, mount, settle, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import { inLanguage } from '../account/test/screen';
-import { LeaderboardScreen } from './LeaderboardScreen';
+import { LeaderboardScreen, readAgo } from './LeaderboardScreen';
 
 vi.mock('next/link', () => import('../wallet/test/mock-next'));
 
@@ -99,6 +99,7 @@ const json = (body: unknown, status = 200) =>
 afterEach(async () => {
   await unmountAll();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('the leaderboard page', () => {
@@ -147,6 +148,30 @@ describe('the leaderboard page', () => {
     expect(find(host, '[data-ui="sample-tag"]').textContent).toBe(en.shell.testNetworkLine);
     expect(host.textContent).not.toContain('MOCK');
     expect(find(host, '[data-ui="leaderboard-count"]').textContent).toContain('3');
+  });
+
+  it('says when each vault was last read as time ago, with the instant on hover', async () => {
+    // the answer reaches the page four minutes after the snapshots were read
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse(SOURCED.fetchedAt) + 4 * 60_000);
+    const { host } = await page(() => json(ANSWER));
+    const read = host.querySelector('[data-ui="leaderboard-read"] time');
+    if (!read) throw new Error('no time');
+    expect(read.textContent).toBe('4 min ago');
+    expect(read.getAttribute('datetime')).toBe(SOURCED.fetchedAt);
+    expect(read.getAttribute('title')).toMatch(/2026/);
+  });
+
+  it('counts the time back in minutes, hours and days, in both languages', () => {
+    const at = Date.parse(SOURCED.fetchedAt);
+    const pt = dictionary('pt').leaderboard.ago;
+    expect(readAgo(SOURCED.fetchedAt, at + 4 * 60_000, w.ago)).toBe('4 min ago');
+    expect(readAgo(SOURCED.fetchedAt, at + 2 * 3_600_000, w.ago)).toBe('2 h ago');
+    expect(readAgo(SOURCED.fetchedAt, at + 3 * 86_400_000, w.ago)).toBe('3 days ago');
+    expect(readAgo(SOURCED.fetchedAt, at + 86_400_000 * 2, w.ago)).toBe('2 days ago');
+    expect(readAgo(SOURCED.fetchedAt, at + 4 * 60_000, pt)).toBe('há 4 min');
+    expect(readAgo(SOURCED.fetchedAt, at + 3 * 86_400_000, pt)).toBe('há 3 dias');
+    // a clock behind the worker's never says a time to come
+    expect(readAgo(SOURCED.fetchedAt, at - 60_000, w.ago)).toBe('1 min ago');
   });
 
   it('says so when no vault is open', async () => {

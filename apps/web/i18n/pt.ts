@@ -1769,7 +1769,7 @@ export const pt: Dictionary = {
       loading: 'Lendo o cofre…',
       missing: 'Não há cofre neste endereço.',
       back: 'Voltar ao seu portfólio',
-      backVisitor: 'Voltar aos Produtos',
+      backVisitor: 'Voltar ao ranking',
       unreachable: 'Não consegui ler este cofre: nosso servidor não respondeu. Tente de novo.',
       chainOff: (chain: string) =>
         `${chain} está indisponível no nosso servidor por enquanto, então não consigo ler este cofre aqui.`,
@@ -2731,10 +2731,11 @@ export const pt: Dictionary = {
   },
   leaderboard: {
     title: 'Ranking',
-    description: 'Todos os cofres abertos, ordenados pelo que renderam sobre o que entrou neles.',
+    description:
+      'Todos os cofres abertos, ordenados pelo que renderam sobre o que foi depositado neles.',
     lead: (chain: string) =>
-      `Todos os cofres abertos na ${chain}, ordenados pelo que renderam como parte do que entrou neles.`,
-    rule: 'O que entrou são os depósitos feitos neste app, menos os saques. Um cofre sem depósito feito neste app fica por último.',
+      `Todos os cofres abertos na ${chain}, ordenados pelo que renderam como parte do que foi depositado neles.`,
+    rule: 'O que um cofre rendeu é o valor de agora mais o que foi sacado, menos os depósitos feitos neste app. Um cofre sem depósito feito neste app fica por último.',
     loading: 'Lendo os cofres…',
     empty: (chain: string) => `Nenhum cofre está aberto na ${chain} ainda.`,
     failure: {
@@ -2758,6 +2759,12 @@ export const pt: Dictionary = {
     open: (title: string) => `Abrir ${title}`,
     more: (count: number) => `+${count} outros`,
     noDeposit: 'Nenhum depósito feito neste app',
+    ago: {
+      said: 'há {n} {unit}',
+      minute: ['min', 'min'],
+      hour: ['h', 'h'],
+      day: ['dia', 'dias'],
+    },
     neverRead: 'Ainda não lido',
     unvalued: (count: number) =>
       count === 1

@@ -59,7 +59,9 @@ async function signIn(page: Page) {
 
 /**
  * The shelf, reached inside the page: the throwaway wallet lives in the page, so every move stays
- * inside it. Products is out of the bar for the demo (Thom, Oct 28), so the move is the app router's
+ * inside it. Products is out of the bar for the demo (Thom, Oct 28), and the one other link to the
+ * shelf a person can always click, the landing's "see a plan" (`SEE_A_PLAN`), is a plain link on the
+ * marketing page, which loads the page again and with it a new wallet. So the move is the app router's
  * own client-side push, which `next dev` (the server these specs run on) exposes as `window.nd`.
  */
 async function toShelf(page: Page) {
