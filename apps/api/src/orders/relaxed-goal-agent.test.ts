@@ -389,11 +389,9 @@ describe('relaxed intake: the split', () => {
     expect(notes(reply)).toContain('the other 20% of the money is held in USDC');
   });
 
-  it('the preview note is true: the deposit goes into it exactly, no solver', async () => {
+  it('adds no deposit boilerplate under a draft (the page labels it, Oct 28), and no solver', async () => {
     const reply = await run({ shape: 'grow', lines: [line('solana:usdy')] }, 'grow');
-    expect(notes(reply)).toContain(
-      'Your deposit goes into exactly these holdings and shares, after the server checks every line again.',
-    );
+    expect(notes(reply)).not.toMatch(/Your deposit goes into exactly/u);
     expect(notes(reply)).not.toContain('solver');
   });
 });
@@ -808,7 +806,7 @@ describe('relaxed intake: the model never states a figure', () => {
       },
       'Tesla and Nvidia please',
     );
-    expect(own(reply)).toBe(`Here are the two you named.\n${CUT}`);
+    expect(own(reply)).toBe(`Here are the two you named.`);
     expect(JSON.stringify(reply)).not.toMatch(/40%|guaranteed|131/);
   });
   it('serves the server’s note when nothing of the message is left', async () => {
@@ -1100,7 +1098,8 @@ describe('relaxed intake: caps', () => {
     expect(weights(reply)).toEqual({ SOL: 10_000 });
     expect(reply.message).toContain('All of it goes into SOL, as you asked.');
     expect(reply.message).not.toMatch(/cap|warning/i);
-    expect(reply.message).toContain('Part of this reply was left out');
+    // the cut is logged, not said (Oct 28)
+    expect(reply.message).not.toContain('Part of this reply was left out');
     expect(reply.proposal?.allocations[0]?.why).not.toMatch(/cap/i);
     expect(notes(reply)).toContain('Above the cap listed today: SOL at 100% (cap 20%)');
   });

@@ -1247,9 +1247,7 @@
               "input": {
                 "assetId": "solana:nvdax"
               }
-            }
-          ],
-          [
+            },
             {
               "name": "asset_lending",
               "input": {

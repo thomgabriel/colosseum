@@ -723,6 +723,14 @@ export type FigureResolver = {
   parts(text: string, lead?: string): Array<{ sentence: string; why: string[] }>;
 };
 
+/** The most characters a served figure's `source` or `method` holds (`VaultAgentFigure`). */
+export const FIGURE_WORDS_MAX = 2000;
+/** `text` trimmed, and cut to `max` characters with an ellipsis where it is longer. */
+export const clipped = (text: string, max: number): string => {
+  const trimmed = text.trim();
+  return trimmed.length > max ? `${trimmed.slice(0, max - 1).trimEnd()}…` : trimmed;
+};
+
 /**
  * Resolves references against one request's evidence: an id whose source carries a value is that
  * figure, an id listed as missing says why, and anything else names nothing. With `enabled` false (the
@@ -769,8 +777,10 @@ export function figureResolver(input: {
         text: figureText(source.value, source.unit, language, atLeast),
         value: source.value,
         unit: source.unit,
-        source: source.source,
-        method: source.method,
+        // A source's words are clipped to what a reply's figure holds: a method of 2,001 characters
+        // once failed the whole reply (Oct 27, `too_big:figures.facts.0.method`).
+        source: clipped(source.source, FIGURE_WORDS_MAX),
+        method: clipped(source.method, FIGURE_WORDS_MAX),
         fetchedAt: source.fetchedAt,
         provenance: source.provenance,
         staleAgeSec:

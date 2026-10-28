@@ -176,6 +176,27 @@ describe('private strategy exploration for a new goal', () => {
     expect(calls).toHaveLength(0);
   });
   // Thom, Oct 15: the chat was the narrowest column, beside an empty card
+  it('shows the notes on the split right under the reply, not folded in the card (Oct 28)', async () => {
+    const host = await show();
+    await send(host, 'Gold and some cash');
+    const notes = find(host, '[data-ui="goal-draft-notes"]');
+    // under the words of the reply it goes with
+    expect(notes.closest('li[data-who="app"]')?.textContent).toContain(
+      'Here is a private preview.',
+    );
+    expect([...notes.querySelectorAll('li')].map((li) => li.textContent)).toEqual(
+      preview.tradeoffs,
+    );
+    // said once: the card's folded reasons no longer hold them
+    const card = find(host, '[data-ui="goal-strategy"]');
+    expect(card.querySelector('details')?.textContent).not.toContain(preview.tradeoffs[0]);
+    // with the chat hidden, the card holds them again
+    const hide = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent === en.talk.hideChat,
+    ) as HTMLElement;
+    await click(hide);
+    expect(card.querySelector('details')?.textContent).toContain(preview.tradeoffs[0]);
+  });
   it('gives the chat the room until the first message, then a fair share beside the draft', async () => {
     const host = await show();
     const workbench = find(host, '[data-ui="goal-conversation"]');
@@ -1265,7 +1286,10 @@ describe('waiting for a reply, in the conversation and on the card', () => {
     // the reply is where the pending row was, and is read out once
     expect(host.querySelector('[data-ui="reply-pending"]')).toBeNull();
     expect(rows(host)[1]?.getAttribute('data-who')).toBe('app');
-    expect(rows(host)[1]?.textContent).toBe(`${en.talk.me}: Here is a private preview.`);
+    // the reply's words, then the server's notes on the split under them
+    expect(rows(host)[1]?.textContent).toBe(
+      `${en.talk.me}: Here is a private preview.${preview.tradeoffs.join('')}`,
+    );
     expect(announced(host).textContent).toBe(
       `${en.talk.me}: Here is a private preview. ${en.shared.vault.conversation.draftArrived}`,
     );

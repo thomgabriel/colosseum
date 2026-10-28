@@ -72,9 +72,7 @@ describe('the server’s sentences: vault and deposit, never mix or buy', () => 
   it('reads the notes, the refusals, the step names and both prompts', () => {
     expect(all.length).toBeGreaterThan(300);
     const texts = all.map(({ text }) => text);
-    expect(
-      texts.some((text) => text.startsWith('Your deposit goes into exactly these holdings')),
-    ).toBe(true);
+    expect(texts.some((text) => text.startsWith('Equal split'))).toBe(true);
     expect(texts.some((text) => text.startsWith('You are the planner at Tenonfi'))).toBe(true);
     expect(texts.some((text) => text.startsWith('You are the conversational agent'))).toBe(true);
     expect(texts.some((text) => text.includes('into your plan’s vault on'))).toBe(true);

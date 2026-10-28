@@ -192,7 +192,8 @@ async function probe(text: string) {
     kind:
       message === CUT
         ? ('refused' as const)
-        : message.endsWith(`\n${CUT}`)
+        : // a cut is logged, not said in the reply (Oct 28)
+          (result.repair?.sentencesCut ?? 0) > 0
           ? ('trimmed' as const)
           : ('served' as const),
     message,

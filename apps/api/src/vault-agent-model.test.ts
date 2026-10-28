@@ -216,7 +216,25 @@ describe('vault proposal provider uses the existing model settings and a shared 
     expect(JSON.stringify(VAULT_AGENT_REPLY_SCHEMA)).not.toMatch(/purpose|goal|risk/);
     expect(VAULT_AGENT_SYSTEM).toContain('Only the server reads these');
     expect(VAULT_AGENT_SYSTEM).toContain('Never state, assume or infer a goal or a risk');
-    expect(VAULT_AGENT_SYSTEM).toContain('use question to ask for what is missing');
+    expect(VAULT_AGENT_SYSTEM).toContain(
+      'use question to ask for the one missing thing the data can act on',
+    );
+  });
+
+  // ANALYTICS-FIRST (Thom, Oct 28): no risk-level talk; choices and "why" answered from measured figures.
+  it('never asks for a risk level, and chooses and explains from the measurements', () => {
+    expect(VAULT_AGENT_SYSTEM).not.toMatch(/how much risk they accept/u);
+    expect(VAULT_AGENT_SYSTEM).toContain(
+      'Never ask the person for a risk level (low, medium or high) and never say one back',
+    );
+    expect(VAULT_AGENT_SYSTEM).toContain('how much, when they need it, or which assets or themes');
+    expect(VAULT_AGENT_SYSTEM).toContain(
+      'Choose and explain from the measurements, not from labels',
+    );
+    expect(VAULT_AGENT_SYSTEM).toMatch(/deeper exit capacity and a lower exit cost/u);
+    expect(VAULT_AGENT_SYSTEM).toContain('Asked why an asset ("why TSLAx?"');
+    expect(VAULT_AGENT_SYSTEM).toContain('what would make it not fit');
+    expect(VAULT_AGENT_SYSTEM).toContain('or why an asset was picked');
   });
 
   it('asks the model for picks only: no weight in its schema, and the prompt says the server sets them', () => {
@@ -226,6 +244,29 @@ describe('vault proposal provider uses the existing model settings and a shared 
     expect(VAULT_AGENT_SYSTEM).not.toMatch(
       /only in weightBps|choose listed assets and allocation weights/,
     );
+  });
+
+  // Thom, Oct 28 (CHAT-FEWER-WORDS, QUOTED-SHARES): what the 61 logged replies repeated is no longer
+  // asked for, a stated share is drafted, and a go-ahead is one yes-or-no question.
+  it('asks for what changed and the next step, not the boilerplate the logged replies repeated', () => {
+    // no longer required
+    expect(VAULT_AGENT_SYSTEM).not.toMatch(/You cannot trade, fund, approve, or apply anything/u);
+    expect(VAULT_AGENT_SYSTEM).not.toMatch(/private, non-executable preview/u);
+    expect(VAULT_AGENT_SYSTEM).not.toMatch(/ask them in question to say it as a percentage/u);
+    // asked for instead
+    expect(VAULT_AGENT_SYSTEM).toContain('Say what changed and the one next step');
+    expect(VAULT_AGENT_SYSTEM).toContain(
+      'that you cannot place trades, or that auto-follow is off',
+    );
+    expect(VAULT_AGENT_SYSTEM).toContain('Never ask the person to restate or rephrase a share');
+    // one rule on what sets a weight, and no relative move read as a share (review of #359)
+    expect(VAULT_AGENT_SYSTEM).not.toContain('these, and nothing you report, set the weights');
+    expect(VAULT_AGENT_SYSTEM).toContain('is no share: draft the direction');
+    expect(VAULT_AGENT_SYSTEM).not.toMatch(/works both out from the current targets/u);
+    expect(VAULT_AGENT_SYSTEM).toContain('Never say you cannot make a deposit');
+    expect(VAULT_AGENT_SYSTEM).toContain('Deposit button');
+    expect(VAULT_AGENT_SYSTEM).toContain('ask one yes-or-no question about the single next step');
+    expect(VAULT_AGENT_SYSTEM).toContain('facts.rebalanceNotOffered says why: within_tolerance');
   });
 
   it('reads VAULT_AGENT_MODEL, or falls back to Opus 5.5', () => {
