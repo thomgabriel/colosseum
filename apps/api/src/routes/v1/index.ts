@@ -305,7 +305,7 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
       ? apiKey
         ? createAnthropicVaultAgentModel({
             apiKey,
-            model: vaultAgentModelId(env, modelSettings.model),
+            model: vaultAgentModelId(env),
             timeoutMs: vaultAgentTimeoutMs(env),
             effort: vaultAgentEffort(env),
             quota,

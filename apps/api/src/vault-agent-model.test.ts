@@ -18,6 +18,7 @@ import {
   repairRequest,
   VAULT_AGENT_EFFORT,
   VAULT_AGENT_MAX_TOKENS,
+  VAULT_AGENT_MODEL_ID,
   VAULT_AGENT_REPAIR_MARGIN_MS,
   VAULT_AGENT_REPAIR_MIN_MS,
   VAULT_AGENT_REPLY_SCHEMA,
@@ -227,19 +228,16 @@ describe('vault proposal provider uses the existing model settings and a shared 
     );
   });
 
-  it('reads VAULT_AGENT_MODEL, or falls back to the intake model', () => {
-    expect(vaultAgentModelId({}, 'claude-haiku-4-5')).toBe('claude-haiku-4-5');
-    expect(vaultAgentModelId({ VAULT_AGENT_MODEL: ' ' }, 'claude-haiku-4-5')).toBe(
-      'claude-haiku-4-5',
+  it('reads VAULT_AGENT_MODEL, or falls back to Opus 5.5', () => {
+    expect(VAULT_AGENT_MODEL_ID).toBe('claude-opus-5-5');
+    expect(vaultAgentModelId({})).toBe('claude-opus-5-5');
+    expect(vaultAgentModelId({ VAULT_AGENT_MODEL: ' ' })).toBe('claude-opus-5-5');
+    expect(vaultAgentModelId({ VAULT_AGENT_MODEL: 'claude-sonnet-4-6' })).toBe('claude-sonnet-4-6');
+    expect(() => vaultAgentModelId({ VAULT_AGENT_MODEL: 'sk-ant private key' })).toThrow(
+      /^VAULT_AGENT_MODEL must be a model id/,
     );
-    expect(vaultAgentModelId({ VAULT_AGENT_MODEL: 'claude-sonnet-4-6' }, 'claude-haiku-4-5')).toBe(
-      'claude-sonnet-4-6',
-    );
-    expect(() =>
-      vaultAgentModelId({ VAULT_AGENT_MODEL: 'sk-ant private key' }, 'claude-haiku-4-5'),
-    ).toThrow(/^VAULT_AGENT_MODEL must be a model id/);
     try {
-      vaultAgentModelId({ VAULT_AGENT_MODEL: 'sk-ant private key' }, 'claude-haiku-4-5');
+      vaultAgentModelId({ VAULT_AGENT_MODEL: 'sk-ant private key' });
     } catch (error) {
       expect(String(error)).not.toContain('sk-ant');
     }
@@ -264,10 +262,10 @@ describe('vault proposal provider uses the existing model settings and a shared 
     expect(VAULT_AGENT_MAX_TOKENS).toBe(16_000);
   });
 
-  it('reads VAULT_AGENT_EFFORT: low by default, low, medium or high, and nothing else', () => {
-    expect(VAULT_AGENT_EFFORT).toBe('low');
-    expect(vaultAgentEffort({})).toBe('low');
-    expect(vaultAgentEffort({ VAULT_AGENT_EFFORT: ' ' })).toBe('low');
+  it('reads VAULT_AGENT_EFFORT: high by default, low, medium or high, and nothing else', () => {
+    expect(VAULT_AGENT_EFFORT).toBe('high');
+    expect(vaultAgentEffort({})).toBe('high');
+    expect(vaultAgentEffort({ VAULT_AGENT_EFFORT: ' ' })).toBe('high');
     expect(vaultAgentEffort({ VAULT_AGENT_EFFORT: 'medium' })).toBe('medium');
     expect(vaultAgentEffort({ VAULT_AGENT_EFFORT: ' high ' })).toBe('high');
     for (const bad of ['max', 'xhigh', 'LOW', 'sk-ant private key']) {
@@ -317,7 +315,7 @@ describe('vault proposal provider uses the existing model settings and a shared 
       }).read('owner', prompt);
       const body = sdk.create.mock.calls.at(-1)?.[0];
       const format = { type: 'json_schema', schema: VAULT_AGENT_REPLY_SCHEMA };
-      expect(body.output_config).toEqual(sent ? { effort: effort ?? 'low', format } : { format });
+      expect(body.output_config).toEqual(sent ? { effort: effort ?? 'high', format } : { format });
       expect(body.max_tokens).toBe(VAULT_AGENT_MAX_TOKENS);
       expect(body).not.toHaveProperty('thinking');
     }
