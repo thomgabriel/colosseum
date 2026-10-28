@@ -343,7 +343,7 @@ export async function fundMock(
  * and the margin it adds over what is missing. Said on the card before the ask; the server is what
  * holds to them.
  */
-export const TEST_SEND = { maxUsd: 5_000, perDay: 3, marginBps: 100 } as const;
+export const TEST_SEND = { maxUsd: 10_000, perDay: 3, marginBps: 100 } as const;
 
 export type TestFundsOutcome =
   | { kind: 'sent'; sent: TestFundsResponse }

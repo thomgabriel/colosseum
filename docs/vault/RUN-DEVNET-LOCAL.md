@@ -28,7 +28,7 @@ It refuses to start when the shell asks for mainnet (`CHAIN_NETWORK_*`, `NEXT_PU
      ! mv ~/Downloads/solana-devnet-faucet.json ~/Documents/testnet-keys/ && chmod 600 ~/Documents/testnet-keys/solana-devnet-faucet.json
      ```
 
-     The launcher hands it to the API as `TESTNET_FAUCET_SOLANA_KEY` and says "test faucet: key file found". The buy screen then offers "Get test funds": what the buy is missing, at most $5,000 and 0.05 SOL a send, three sends a day.
+     The launcher hands it to the API as `TESTNET_FAUCET_SOLANA_KEY` and says "test faucet: key file found". The buy screen then offers "Get test funds": what the buy is missing, at most $10,000 and 0.05 SOL a send, three sends a day.
    - **By hand, without the faucet key.** Sign in once (below) to learn your Solana address. Gas: 0.05 devnet SOL from https://faucet.solana.com to that address. Test dollars: ask Thom to send tUSDC (mint `AEtFZt8Fq4PYzBs4d8VoMypDDhjp9XTv6qvhJZhd8BUn`) from the faucet wallet or the deploy key, which alone can mint them (`apps/web/features/wallet/README.md`, "A buy on devnet").
 
 ## Each time
