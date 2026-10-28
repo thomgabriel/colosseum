@@ -651,7 +651,7 @@ describe('the goal agent behind /goal (gate RELAXED-INTAKE)', () => {
       { ANTHROPIC_API_KEY: 'placeholder', GOAL_AGENT: 'relaxed' },
       { ANTHROPIC_API_KEY: 'placeholder', GOAL_AGENT: '  ' },
     ])
-      expect(fromEnv(env)?.id).toBe('claude-sonnet-5-5');
+      expect(fromEnv(env)?.id).toBe('claude-opus-5-5');
     expect(fromEnv({ ANTHROPIC_API_KEY: 'placeholder', RELAXED_MODEL: 'claude-x' })?.id).toBe(
       'claude-x',
     );
@@ -816,6 +816,6 @@ describe('the goal agent behind /goal (gate RELAXED-INTAKE)', () => {
     ]);
   });
   it('is made with no network call: the client is built, nothing is sent until a reply is asked', () => {
-    expect(createRelaxedGoalAgent({ apiKey: 'placeholder' }).id).toBe('claude-sonnet-5-5');
+    expect(createRelaxedGoalAgent({ apiKey: 'placeholder' }).id).toBe('claude-opus-5-5');
   });
 });
