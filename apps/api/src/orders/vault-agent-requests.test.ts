@@ -1330,9 +1330,9 @@ describe("the person's stated shares, as their words hold them", () => {
         { stockAttributes },
       );
       expect(two.weights).toEqual([5000, 5000]);
-      // Spelt as the catalog names it, "all" in a longer sentence is the whole vault.
+      // Spelt as the catalog names it, "all in" after an asking lead is the whole vault.
       const spelt = await served(
-        ['ok so i want to go all in on Tesla now'],
+        ['So I want to go all in on Tesla.'],
         ['TSLA', 'GLD'],
         [shareOf(['TSLA'], 'exact', 10_000, 'all in on Tesla')],
         'en',
@@ -1564,28 +1564,84 @@ describe("the person's stated shares, as their words hold them", () => {
       expect(out.weights).toEqual(alone.weights);
     });
 
-    it.each<[string, string, number, ('en' | 'pt')?]>([
-      ['Tesla 50%.', 'Tesla 50%', 5000],
-      ['Put 50% in Tesla please.', '50% in Tesla', 5000],
-      ['Make it 50% Tesla.', '50% Tesla', 5000],
-      ['I want Tesla 50%, as an exact target.', 'Tesla 50%', 5000],
-      ['Quero 50% em Tesla.', '50% em Tesla', 5000, 'pt'],
-    ])(
-      'applies a plain request the reader alone leaves: "%s"',
-      async (text, quote, bps, language = 'en') => {
-        const out = await served(
-          [text],
-          ['TSLA', 'GLD'],
-          [shareOf(['TSLA'], 'exact', bps, quote)],
-          language,
-          {
-            stockAttributes,
-          },
-        );
-        expect(out.weights).toEqual([5000, 5000].map((_, i) => (i === 0 ? bps : 10_000 - bps)));
-        expect(stated(out).map((note) => note.assetIds)).toEqual([[symbol('TSLA')]]);
-      },
-    );
+    // Only the quote check applies these (the reader alone splits equally), over three picks so an
+    // equal split cannot pass for them.
+    it.each<[string, string[], ReturnType<typeof shareOf>[], number[]]>([
+      [
+        'TSLAx 10%, as an exact target.',
+        ['TSLA', 'NVDA', 'GLD'],
+        [shareOf(['TSLA'], 'exact', 1000, 'TSLAx 10%')],
+        [1000, 4500, 4500],
+      ],
+      [
+        'So I want to go all in on Tesla.',
+        ['TSLA', 'NVDA', 'GLD'],
+        [shareOf(['TSLA'], 'exact', 10_000, 'all in on Tesla')],
+        [10_000],
+      ],
+      [
+        'Put the other 10% in cash.',
+        ['USD', 'NVDA', 'GLD'],
+        [shareOf(['USD'], 'exact', 1000, 'Put the other 10% in cash')],
+        [1000, 4500, 4500],
+      ],
+      [
+        'TSLAx 10%, as an exact target. Put the other 10% in cash.',
+        ['TSLA', 'USD', 'NVDA'],
+        [
+          shareOf(['TSLA'], 'exact', 1000, 'TSLAx 10%'),
+          shareOf(['USD'], 'exact', 1000, 'Put the other 10% in cash'),
+        ],
+        [1000, 1000, 8000],
+      ],
+    ])('applies what only the quote check reads: "%s"', async (text, picks, report, weights) => {
+      const alone = await served([text], picks, [], 'en', { stockAttributes });
+      expect(alone.weights).toEqual(picks.length === 3 ? [3334, 3333, 3333] : alone.weights);
+      const out = await served([text], picks, report, 'en', { stockAttributes });
+      expect(out.weights).toEqual(weights);
+    });
+
+    // Re-review of #359: a later sentence of the same message takes the share back, so a quoted share
+    // applies only when every sentence of the latest message is a share or a courtesy.
+    it.each([
+      ['All in on Tesla. Kidding.', 'All in on Tesla', 10_000],
+      ['I want to go all in on Tesla. Just kidding.', 'all in on Tesla', 10_000],
+      ['Go all in on Tesla. Or not.', 'all in on Tesla', 10_000],
+      ['Put everything in Tesla. Joking.', 'everything in Tesla', 10_000],
+      ['My brother told me this. Go all in on Tesla.', 'all in on Tesla', 10_000],
+      ['All in on Tesla. That is what my brother did last year.', 'All in on Tesla', 10_000],
+      ['All in on Tesla. Would that be crazy?', 'All in on Tesla', 10_000],
+      ['All in on Tesla. No.', 'All in on Tesla', 10_000],
+      ['Tesla 50% now. That is way too much.', 'Tesla 50%', 5000],
+      ['Tesla 50% now. Too much.', 'Tesla 50%', 5000],
+      ['Tesla 50% overall. I hate it.', 'Tesla 50%', 5000],
+      ['Tesla 50% in my portfolio. Too risky?', 'Tesla 50%', 5000],
+      ['Tesla 50% in total. Nope.', 'Tesla 50%', 5000],
+      ['Tesla 10% now. Just kidding.', 'Tesla 10%', 1000],
+      ['TSLAx 10%, as an exact target. Never mind.', 'TSLAx 10%', 1000],
+      ['Tesla 10%, thanks. Wait, no.', 'Tesla 10%', 1000],
+      ['Tesla 50% now? Too much.', 'Tesla 50%', 5000],
+      ['Tesla 50% now!', 'Tesla 50%', 5000],
+      ['Tesla 50% agora. Demais.', 'Tesla 50%', 5000],
+    ] as const)('sets nothing from "%s"', async (text, quote, bps) => {
+      const picks = ['TSLA', 'NVDA', 'GLD'];
+      const out = await served([text], picks, [shareOf(['TSLA'], 'exact', bps, quote)], 'en', {
+        stockAttributes,
+      });
+      const alone = await served([text], picks, [], 'en', { stockAttributes });
+      expect(out.weights).toEqual(alone.weights);
+    });
+
+    it('applies a quoted share beside a courtesy sentence', async () => {
+      const out = await served(
+        ['TSLAx 10%, as an exact target. Thanks.'],
+        ['TSLA', 'NVDA', 'GLD'],
+        [shareOf(['TSLA'], 'exact', 1000, 'TSLAx 10%')],
+        'en',
+        { stockAttributes },
+      );
+      expect(out.weights).toEqual([1000, 4500, 4500]);
+    });
 
     it('sets nothing a message itself takes back: "Make Tesla 30%. Actually drop Tesla."', async () => {
       const out = await served(

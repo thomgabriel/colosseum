@@ -2326,7 +2326,7 @@ const WHOLE_IN =
 // is ("TSLAx 10%, as an exact target."). Anything else ("of my stocks", "scares me", "tops", "- joking")
 // and the sentence is no plain request.
 const QUOTED_TAIL =
-  /^(?:\s*,?\s*(?:as\s+an?\s+(?:exact\s+)?(?:target|share|weight)|exactly|exatamente|please|por\s+favor|in\s+(?:this|the|my)\s+(?:vault|portfolio)|n[oa]\s+(?:meu\s+|minha\s+)?(?:cofre|carteira)|overall|in\s+total|no\s+total|now|agora|thanks|thank\s+you|obrigad[oa]))*\s*[.!]*\s*$/iu;
+  /^(?:\s*,?\s*(?:as\s+an?\s+(?:exact\s+)?(?:target|share|weight)|exactly|exatamente|please|por\s+favor|in\s+(?:this|the|my)\s+(?:vault|portfolio)|n[oa]\s+(?:meu\s+|minha\s+)?(?:cofre|carteira)|overall|in\s+total|no\s+total|thanks|thank\s+you|obrigad[oa]))*\s*[.!]*\s*$/iu;
 
 /**
  * The shares the model reports in `stated` that the person's latest message plainly asks for, checked
@@ -2341,7 +2341,9 @@ const QUOTED_TAIL =
  *     (`QUOTED_LEAD`), then the number with its own bound and the asset straight after it ("10% in
  *     cash") or the asset with the number straight after it ("TSLAx 10%"), or "all in" before the
  *     asset for the whole vault, then at most a short tail (`QUOTED_TAIL`), with no other bound and no
- *     question.
+ *     question; and every other sentence of the message is a share the reader reads itself or a
+ *     courtesy, so a later sentence cannot take it back ("All in on Tesla. Kidding."), and "all in"
+ *     counts only as the whole message.
  * A relative change ("move 10% from Tesla into cash", "more Tesla") is never a share here: the model
  * drafts it and the person sets the share on the review. Anything else sets nothing, as before.
  */
@@ -2361,6 +2363,10 @@ export function quotedShares(input: {
   for (const match of text.matchAll(/((?:[^.;!?]|(?<=\d)\.(?=\d))+)([.;!?]*)/gu))
     sentences.push({ start: match.index ?? 0, said: match[0] });
   const found: QuotedShare[] = [];
+  // The sentences an accepted quote covers; every other one must be a share the reader reads itself
+  // or a courtesy, else nothing is applied ("All in on Tesla. Kidding.").
+  const accepted = new Set<number>();
+  const single = sentences.filter(({ said }) => said.replace(/[.;!?\s]/gu, '')).length === 1;
   input.stated.forEach((share, from) => {
     const quote = flat(share.quote);
     const [id, ...more] = share.assetIds;
@@ -2375,7 +2381,7 @@ export function quotedShares(input: {
         start = i;
     if (start < 0) return;
     const end = start + quote.length;
-    const holds = sentences.some(({ start: from0, said: sentence }) => {
+    const holds = sentences.findIndex(({ start: from0, said: sentence }) => {
       // only a sentence the quote covers
       if (from0 + sentence.length <= start || from0 >= end || sentence.includes('?')) return false;
       const spans = named(sentence);
@@ -2384,8 +2390,8 @@ export function quotedShares(input: {
       const lead = (to: number) => sentence.slice(0, to);
       const tail = (to: number) => QUOTED_TAIL.test(sentence.slice(to));
       const covered = (lo: number, hi: number) => from0 + lo >= start && from0 + hi <= end;
-      // the whole vault: "all in on Tesla"
-      if (share.kind === 'exact' && share.bps === 10_000) {
+      // the whole vault: "all in on Tesla", only as the whole message (as the reader reads it)
+      if (share.kind === 'exact' && share.bps === 10_000 && single) {
         const before = lead(asset.start);
         const whole = WHOLE_IN.exec(before);
         if (
@@ -2422,14 +2428,24 @@ export function quotedShares(input: {
         covered(asset.start, hi)
       );
     });
-    if (holds)
-      found.push({
-        at,
-        from,
-        share: { assetIds: [id], kind: share.kind, bps: share.bps, quote: quote.slice(0, 400) },
-      });
+    if (holds < 0) return;
+    accepted.add(holds);
+    found.push({
+      at,
+      from,
+      share: { assetIds: [id], kind: share.kind, bps: share.bps, quote: quote.slice(0, 400) },
+    });
   });
-  return found;
+  const plainly = sentences.every(({ said }, i) => {
+    if (accepted.has(i)) return true;
+    const bare = said.replace(/[.;!?]+\s*$/u, '').trim();
+    if (!bare) return true;
+    return bare
+      .split(/(?<!\d),|,(?!\d)/u)
+      .map((piece) => piece.trim())
+      .every((piece) => COURTESY.test(piece) || plainShares(piece, named).length > 0);
+  });
+  return plainly ? found : [];
 }
 
 /**
