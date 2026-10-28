@@ -361,14 +361,14 @@ export const en = {
       lead: 'Tell me your ideas, needs and limits. I’ll draft a vault with its sources and tradeoffs.',
       placeholder: 'Describe what you want to explore…',
       /**
-       * Typed into the box by a press, never sent by it. The two after the first state their shares,
-       * so the draft is the vault they say on Solana devnet and on Robinhood Chain alike (Thom, Oct 28;
-       * apps/api `relaxed-goal-agent.test.ts` holds that both read so).
+       * Typed into the box by a press, never sent by it. The two after the first ask for what only the
+       * measured exit figures answer, never an abstract risk level (Thom, Oct 28); "stocks" and "gold"
+       * load those figures for the conversation (apps/api `relaxed-goal-agent.test.ts`).
        */
       starters: [
         'Explore technology stocks',
-        'I want NVDA 20%, AAPL 20%, GOOGL 20%, META 20% and gold 20%',
-        'I want SPY 50%, QQQ 30% and gold 20%',
+        'The stocks with the deepest liquidity',
+        '$2,000 in tech stocks and gold, cheapest to exit',
       ],
       local: 'A private draft, kept in this browser.',
       signIn: 'Sign in to start a vault.',
@@ -2830,7 +2830,7 @@ export const en = {
     title: 'What does your money need to do?',
     lead: 'Say it in a sentence. I read it into limits; the plan is built in tenonfi, on a wallet of your own.',
     box: 'Your goal',
-    placeholder: '$10,000 for five years, medium risk',
+    placeholder: '$5,000 in big tech, only stocks I can sell easily',
     read: 'Read my goal',
     reading: 'Reading your goal…',
     unread: 'Your goal, as read',

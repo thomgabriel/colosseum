@@ -297,7 +297,9 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
   await expect(pane).toHaveAttribute('tabindex', '0');
   const held = panel.locator('[data-ui="composition"]').first();
   await held.scrollIntoViewIfNeeded();
-  // the pane scrolled to it: its top is in the pane's window, and the pane is in the page's
+  // the pane scrolled to it: it is in the pane's window, and the pane is in the page's. Since the
+  // pane's cards keep their height (Oct 28), what the vault holds can be taller than the pane, and
+  // being brought into view may leave its top above the pane's: in sight is enough
   const seen = await page.evaluate(() => {
     const pane = document.querySelector('[data-ui="vault-plan"]') as HTMLElement;
     const at = (
@@ -306,7 +308,7 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
     const box = pane.getBoundingClientRect();
     return {
       scrolled: pane.scrollTop > 0,
-      inPane: at.top >= box.top && at.top < box.bottom,
+      inPane: at.top < box.bottom && at.bottom > box.top,
       paneInWindow: box.bottom <= window.innerHeight,
     };
   });
