@@ -152,10 +152,10 @@ async function withdrawal(who: Someone, address: string, usd: number, unpriced =
 }
 
 /** The answer, read past the time an answer is kept, so it is read again. */
-async function read(fresh = true) {
+async function read(fresh = true, on: FastifyInstance = app) {
   if (fresh) clock = new Date(clock.getTime() + 3 * LEADERBOARD_KEPT_MS);
   // No sign-in: anybody may ask.
-  const res = await app.inject({ method: 'GET', url: '/v1/leaderboard' });
+  const res = await on.inject({ method: 'GET', url: '/v1/leaderboard' });
   expect(res.statusCode, res.body).toBe(200);
   const answer = LeaderboardResponse.parse(res.json());
   expect(res.json()).toEqual(answer);
@@ -234,6 +234,8 @@ describe('GET /v1/leaderboard', () => {
       chain: 'solana',
       provenance: 'mock',
       rule: LEADERBOARD_RULE,
+      // no window set: every open vault
+      since: null,
       disclaimer: DISCLAIMER.en,
     });
 
@@ -336,5 +338,66 @@ describe('GET /v1/leaderboard', () => {
     expect(rowAt((await read(false)).answer, vault)).toBeUndefined();
     // past it: read again
     expect(rowAt((await read()).answer, vault)).toBeDefined();
+  });
+});
+
+describe('GET /v1/leaderboard with an event window (LEADERBOARD_SINCE)', () => {
+  let windowed: FastifyInstance;
+  let since: Date;
+  beforeAll(async () => {
+    since = new Date(Math.floor(clock.getTime() / 1000) * 1000 - 60 * MINUTE);
+    ({ app: windowed } = await testApp({
+      issuer: null,
+      db: data.db,
+      now: () => clock,
+      env: { LEADERBOARD_SINCE: since.toISOString() },
+    }));
+  });
+  afterAll(async () => {
+    await windowed.close();
+  });
+
+  it('lists only vaults whose first deposit made in the app is at or after the window, and says it', async () => {
+    const at = (minutes: number) => new Date(since.getTime() + minutes * MINUTE);
+    const opened = async (number: string, first: Date | null) => {
+      const who = await someone();
+      const address = await vaultOf(who, { number });
+      if (first) await deposit(who, number, 100, first);
+      await snapshot(who, address, number, 110, 1);
+      return { who, address };
+    };
+    const inside = await opened('11', at(30));
+    const boundary = await opened('12', since);
+    const before = await opened('13', at(-1));
+    const none = await opened('14', null);
+    // a later deposit does not bring an older vault into the window
+    await deposit(before.who, '13', 50, at(10));
+
+    const { answer } = await read(true, windowed);
+    expect(answer.since).toBe(since.toISOString());
+    expect(rowAt(answer, inside.address)).toBeDefined();
+    expect(rowAt(answer, boundary.address)).toBeDefined();
+    expect(rowAt(answer, before.address)).toBeUndefined();
+    expect(rowAt(answer, none.address)).toBeUndefined();
+    // every row listed made its first deposit in the window, so every row has a figure
+    expect(answer.vaults.every((row) => row.pnl !== null)).toBe(true);
+    expect(answer.vaults.map((r) => r.rank)).toEqual(answer.vaults.map((_, i) => i + 1));
+
+    // the same vaults without a window: all four, as before
+    const all = (await read()).answer;
+    for (const v of [inside, boundary, before, none]) expect(rowAt(all, v.address)).toBeDefined();
+  });
+
+  it('refuses to start on a value it cannot read, naming the variable and not the value', async () => {
+    for (const bad of ['yesterday', '2026-10-29', '2026-10-29T12:00:00', '2026-13-40T99:00:00Z']) {
+      const started = testApp({
+        issuer: null,
+        db: data.db,
+        now: () => clock,
+        env: { LEADERBOARD_SINCE: bad },
+      });
+      await expect(started).rejects.toThrow(/^LEADERBOARD_SINCE: /);
+      await started.catch((err: Error) => expect(err.message).not.toContain(bad));
+    }
   });
 });

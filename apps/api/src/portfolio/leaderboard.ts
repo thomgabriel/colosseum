@@ -2,6 +2,7 @@ import { type Db, legs, orders, users, vaultNumbers, vaultSnapshots, vaults } fr
 import {
   type Address,
   chainFamily,
+  type EnvLike,
   type LeaderboardHolding,
   type LeaderboardPnl,
   type LeaderboardRow,
@@ -33,6 +34,24 @@ export const LEADERBOARD_PNL_METHOD =
 /** How the rows are ordered: the answer's `rule`. */
 export const LEADERBOARD_RULE =
   'by what the vault made as a share of what was deposited into it, highest first, then by what it made in dollars; a vault with no figure (no deposit made in this app, or never read) comes last, by value';
+
+/**
+ * The event window (gate LEADERBOARD, Thom, Oct 28): `LEADERBOARD_SINCE`, an ISO 8601 instant with its
+ * zone. Set, the leaderboard lists only vaults whose first confirmed deposit made in this app is at or
+ * after it; unset, every open vault. Read once, when the server starts: a value it cannot read stops it,
+ * with a message that names the variable and never repeats the value.
+ */
+export function leaderboardSince(env: EnvLike): Date | null {
+  const raw = env.LEADERBOARD_SINCE?.trim();
+  if (!raw) return null;
+  const instant = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/i;
+  const at = instant.test(raw) ? new Date(raw) : null;
+  if (!at || Number.isNaN(at.getTime()))
+    throw new Error(
+      'LEADERBOARD_SINCE: expected an ISO 8601 instant with its zone (YYYY-MM-DDTHH:MM:SSZ, or an offset such as -03:00), or unset',
+    );
+  return at;
+}
 
 const MICRO = 1_000_000n;
 
@@ -170,7 +189,13 @@ async function takenOutOf(
  * the platform's numbers count one (GET /v1/stats): named by the vault cache, or read by the snapshot
  * worker in the last week; and under the label the chain's figures carry here.
  */
-export async function leaderboardOf(db: Db, entry: ChainEntry, now: Date) {
+export async function leaderboardOf(
+  db: Db,
+  entry: ChainEntry,
+  now: Date,
+  /** The event window: only vaults whose first deposit made in this app is at or after it. */
+  windowStart: Date | null = null,
+) {
   const { chain, provenance } = entry;
   const since = new Date(now.getTime() - SNAPSHOT_LOOKBACK_DAYS * 86_400_000);
   const vs = vaultSnapshots;
@@ -319,5 +344,12 @@ export async function leaderboardOf(db: Db, entry: ChainEntry, now: Date) {
       follows: family ? { name: family.name, slug: family.slug } : null,
     };
   });
-  return ranked(rows);
+  // In a window, a vault is the event's by its first deposit made in this app: the deposits `putInOf`
+  // reads, oldest first, each at the time the server learned it confirmed. One with none is left out.
+  const inWindow = (address: string) => {
+    if (!windowStart) return true;
+    const first = putIn.get(address)?.deposits[0];
+    return first !== undefined && Date.parse(first.at) >= windowStart.getTime();
+  };
+  return ranked(rows.filter((row) => inWindow(row.address)));
 }

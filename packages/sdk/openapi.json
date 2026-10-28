@@ -13854,7 +13854,7 @@
       "get": {
         "summary": "Every open vault on a chain, ranked by what it made",
         "tags": ["platform"],
-        "description": "Every vault the server knows on the chain (named by its vault cache, or read by the snapshot worker in the last 7 days) and that is open: a closed vault is left out, and a vault opened again counts from then. Read from the database alone. Each row has the vault’s address, the wallet that owns it in short form (nothing else about who owns it: not the name its owner gave it, nor its number among their vaults, which only the owner is answered), what it holds at its newest snapshot with each share of its value, its value then, and the shared portfolio it follows where the server names it. `pnl` is its value less what went in: the cash of each confirmed deposit made in this app, less each confirmed withdrawal at its value when it was ordered; `pct` is that over the deposits, a fraction, whatever was taken out since. A vault with no deposit the server holds (made outside this app) has no `pnl`, says so in `noPnl` and is ranked last. Every figure carries `source`, `fetchedAt`, `method` and `provenance` (`sandbox` on a test network). An answer is kept for 60 seconds.",
+        "description": "Every vault the server knows on the chain (named by its vault cache, or read by the snapshot worker in the last 7 days) and that is open: a closed vault is left out, and a vault opened again counts from then. Read from the database alone. Each row has the vault’s address, the wallet that owns it in short form (nothing else about who owns it: not the name its owner gave it, nor its number among their vaults, which only the owner is answered), what it holds at its newest snapshot with each share of its value, its value then, and the shared portfolio it follows where the server names it. `pnl` is its value less what went in: the cash of each confirmed deposit made in this app, less each confirmed withdrawal at its value when it was ordered; `pct` is that over the deposits, a fraction, whatever was taken out since. A vault with no deposit the server holds (made outside this app) has no `pnl`, says so in `noPnl` and is ranked last. Every figure carries `source`, `fetchedAt`, `method` and `provenance` (`sandbox` on a test network). Where the server runs an event window (`LEADERBOARD_SINCE`), `since` is its start and only vaults whose first confirmed deposit made in this app is at or after it are listed, so a vault with none is left out; otherwise `since` is null. An answer is kept for 60 seconds.",
         "parameters": [
           {
             "schema": {
@@ -13895,6 +13895,19 @@
                     },
                     "rule": {
                       "type": "string"
+                    },
+                    "since": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "vaults": {
                       "type": "array",
@@ -14101,6 +14114,7 @@
                     "provenance",
                     "readAt",
                     "rule",
+                    "since",
                     "vaults",
                     "disclaimer"
                   ],
