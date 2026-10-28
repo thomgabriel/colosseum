@@ -157,6 +157,8 @@ export function GoalConversation({
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [reply, setReply] = useState<GoalReply | null>(null);
+  // The turn that holds the latest reply's words: the server's notes on the split sit under it.
+  const [answered, setAnswered] = useState<string | null>(null);
   // The mix on the screen: the last proposal the conversation made. A reply that only talks, or one
   // that failed, leaves it there, so asking for a change never costs the person what they had.
   const [mix, setMix] = useState<VaultStrategyPreview | null>(null);
@@ -420,6 +422,7 @@ export function GoalConversation({
       held.current = completed;
       setTurns(completed);
       setReply(result);
+      setAnswered(completed[next.length]?.id ?? null);
       setAnnounced(
         [
           `${t.talk.me}: ${replyText(result.message, result.question)}`,
@@ -487,6 +490,12 @@ export function GoalConversation({
   // chat has the room alone, one block in the middle (Thom, Oct 15). A deposit left open keeps it.
   const drafting = turns.length > 0 || mix !== null || open !== null;
   const chatShown = chatOpen || !drafting;
+  // The latest draft's notes, shown under its reply while the chat is on screen; else on the card.
+  const notesShown =
+    chatShown &&
+    answered !== null &&
+    turns.some((turn) => turn.id === answered) &&
+    (reply?.proposal?.tradeoffs.length ?? 0) > 0;
   const tellDrafting = useRef(onDrafting);
   tellDrafting.current = onDrafting;
   // In the same paint as the column, so the rail folds with it, never a frame after; and only once
@@ -588,6 +597,20 @@ export function GoalConversation({
                 <FiguredText {...turn.figures} now={now} />
               ) : (
                 turn.text
+              )}
+              {/* What the server did with the split ("Equal split until you say otherwise", what
+                  was left out and why), under the words it goes with, never folded away (Oct 28). */}
+              {turn.id === answered && notesShown && (
+                <ul
+                  data-ui="goal-draft-notes"
+                  className="mt-2 list-inside list-disc whitespace-normal text-body-sm"
+                >
+                  {reply?.proposal?.tradeoffs.map((note) => (
+                    <li key={note} className="[overflow-wrap:anywhere]">
+                      {note}
+                    </li>
+                  ))}
+                </ul>
               )}
             </li>
           ))}
@@ -750,6 +773,7 @@ export function GoalConversation({
               <StrategyPreview
                 proposal={mix}
                 previewOnly={copy.draftNote}
+                tradeoffsShown={notesShown}
                 wait={{
                   banner: t.shared.vault.conversation.reworking,
                   action: t.shared.vault.conversation.waitingAction,

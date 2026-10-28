@@ -184,7 +184,7 @@ describe('"all in tGOOGLx" on an income vault', () => {
     expect(said).not.toMatch(/cannot hold|separate growth draft|have not put it/u);
     // The names a person sees on the page, not the test network's.
     expect(out.reply.message).toBe(
-      'Your request was: “all in tGOOGLx”. This draft holds GOOGLx alone. Nothing changes until you review and confirm it.',
+      'Your request was: “all in tGOOGLx”. This draft holds GOOGLx alone.',
     );
     expect(out.reply.question).toBeNull();
     expect(out.reply.proposal?.tradeoffs.join(' ')).toMatch(/outside/u);

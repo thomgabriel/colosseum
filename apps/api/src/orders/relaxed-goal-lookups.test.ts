@@ -195,7 +195,7 @@ describe('the relaxed intake looks up the data we hold', () => {
       lookups: [[week]],
       final: sheet("NVDAx's latest closing price was $240.51. It trades on several pools."),
     });
-    expect(served(result).message).toBe(`It trades on several pools.\n${CUT}`);
+    expect(served(result).message).toBe(`It trades on several pools.`);
   });
 
   it('cuts a reference to an id it did not look up', async () => {
@@ -205,7 +205,7 @@ describe('the relaxed intake looks up the data we hold', () => {
         `NVDAx's latest closing price was ${ref(`bars:${NVDA}:30d:close`)}. It trades on several pools.`,
       ),
     });
-    expect(served(result).message).toBe(`It trades on several pools.\n${CUT}`);
+    expect(served(result).message).toBe(`It trades on several pools.`);
   });
 
   it('repairs with the attempt as it was: the lookups, their results and its answer, and no tools to call', async () => {
@@ -225,9 +225,9 @@ describe('the relaxed intake looks up the data we hold', () => {
   });
 
   it('reserves the quota before each paid call, and a denial ends the reply as a budget failure', async () => {
-    const two = await ask({ lookups: [[week], [week]], final: sheet(MOVED) });
-    expect(two.calls).toHaveLength(3);
-    expect(two.reserve).toHaveBeenCalledTimes(3);
+    const two = await ask({ lookups: [[week]], final: sheet(MOVED) });
+    expect(two.calls).toHaveLength(2);
+    expect(two.reserve).toHaveBeenCalledTimes(2);
     let n = 0;
     const denied = await ask({ lookups: [[week]], final: sheet(MOVED) }, undefined, {
       reserve: () => (n++ === 0 ? null : 'model_person_budget_spent'),
@@ -262,7 +262,7 @@ describe('the relaxed intake looks up the data we hold', () => {
       { base: lookups({ service: never }) },
     );
     expect(toolResults(calls[1])[0]?.json.reading).toMatch(/still being read/u);
-    expect(served(result).message).toBe(`Its figures are still being read.\n${CUT}`);
+    expect(served(result).message).toBe(`Its figures are still being read.`);
   });
 
   it('answers an asset not on the chain and the cash token with an error, and the reply stands', async () => {
@@ -374,8 +374,36 @@ describe('the relaxed intake looks up the data we hold', () => {
     expect(rules?.text).toBe(systemOf(two.calls[0])[0]?.text);
     expect(rules?.text).toContain('LOOKUPS');
     expect(rules?.text).toMatch(/come first/u);
-    expect(rules?.text).toMatch(/At most three rounds/u);
+    expect(rules?.text).toMatch(/One round in one reply/u);
     expect(rules?.text).toMatch(/never a return/u);
     expect(rules?.text).toMatch(/no verdict/u);
+  });
+
+  // ANALYTICS-FIRST (Thom, Oct 28)
+  it('chooses from the measurements, asks for no risk level, and answers "why" with its figures', async () => {
+    const { calls } = await ask({ final: sheet('Noted.') }, 'hello');
+    const rules = systemOf(calls[0])[0]?.text ?? '';
+    expect(rules).toContain('Choose from the measurements, not from labels');
+    expect(rules).toContain(
+      'Never ask the person for a risk level (low, medium or high) and never say one back',
+    );
+    expect(rules).toContain('Asked why a holding ("why TSLAx?"');
+    expect(rules).toContain('or why an asset was picked');
+  });
+
+  it('looks up a holding\'s figures on "why NVDAx?" and serves them by reference', async () => {
+    const profile = { name: 'asset_profile', input: { assetId: NVDA } };
+    const { result, calls } = await ask(
+      {
+        lookups: [[profile]],
+        final: sheet(
+          `I picked NVDAx for how much trades. Its pools hold ${ref(`profile:${NVDA}:pool_tvl_usd`)} in total.`,
+        ),
+      },
+      'why NVDAx?',
+    );
+    expect(toolResults(calls[1])[0]?.json).toMatchObject({ assetId: NVDA, part: 'profile' });
+    expect(result.kind === 'reply' && result.lookups).toMatchObject({ rounds: 1, calls: 1 });
+    expect(factsOf(result).has(`profile:${NVDA}:pool_tvl_usd`)).toBe(true);
   });
 });

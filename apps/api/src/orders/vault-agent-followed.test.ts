@@ -527,6 +527,7 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
       expect(out.reply.action).toBe('rebalance');
       const asked = await w.reply(['what can you do'], w.talking('Here it is.'));
       expect(asked.prompt?.facts?.rebalanceAction).toBe(REBALANCE_ACTION.en);
+      expect(asked.prompt?.facts?.rebalanceNotOffered).toBeNull();
     },
   );
 
@@ -542,23 +543,27 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
       },
       /on its targets, so there is nothing to rebalance now/u,
       /nos alvos, então não há o que rebalancear agora/u,
+      // leftover cash inside the band: the model is told why, so it can say it (Thom, Oct 28)
+      'within_tolerance',
     ],
     [
       'auto-follow on, no keeper',
       { autoFollow: true, autoFollowOffered: true, keeperEnabled: false },
       /not at its targets yet/u,
       /ainda não está nos alvos/u,
+      'auto_follow',
     ],
     [
       'a holding with no price',
       { noSyrupPrice: true },
       /not at its targets yet/u,
       /ainda não está nos alvos/u,
+      'no_price',
     ],
   ] as const;
   it.each(hidden)(
     'names no action where the page offers none: %s',
-    async (_case, options, en, pt) => {
+    async (_case, options, en, pt, why) => {
       const vault = world(options);
       for (const [language, text, said] of [
         ['en', 'rebalance', en],
@@ -579,11 +584,14 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
       }
       const asked = await vault.reply(['what can you do'], vault.talking('Here it is.'));
       expect(asked.prompt?.facts?.rebalanceAction).toBeNull();
+      expect(asked.prompt?.facts?.rebalanceNotOffered).toBe(why);
     },
   );
 
   it('names no action where the route says the page has none', async () => {
     const off = world({ rebalanceOnPage: false });
+    const asked = await off.reply(['what can you do'], off.talking('Here it is.'));
+    expect(asked.prompt?.facts?.rebalanceNotOffered).toBe('not_on_page');
     const out = await off.reply(['rebalance'], off.talking('unused'));
     expect(out.calls).toBe(0);
     expect(out.reply.message).not.toContain(REBALANCE_ACTION.en);
@@ -827,7 +835,7 @@ describe('what was said is not said again', () => {
     expect(out.reply.message).toBe(REFUSED);
   });
 
-  it('leaves a new draft whole, and never drops that nothing changes until it is confirmed', async () => {
+  it('leaves a new draft whole, and drops a repeated "nothing changes" like any sentence said before', async () => {
     const draft = w.drafting(w.jl, w.syrup);
     const out = await w.reply(
       ['draft my two dollar assets', ['app', draft.message], 'draft it again'],
@@ -838,7 +846,8 @@ describe('what was said is not said again', () => {
       ['hello', ['app', `${REFUSED} Nothing changes until you review and confirm it.`], 'ok then'],
       w.talking(`Understood. Nothing changes until you review and confirm it. ${REFUSED}`),
     );
-    expect(said.reply.message).toBe('Understood. Nothing changes until you review and confirm it.');
+    // Thom, Oct 28: the page labels a draft; the reply need not say it again (33 of 61 replies did).
+    expect(said.reply.message).toBe('Understood.');
   });
 
   it('tells the model what earlier replies already told the person', async () => {
