@@ -596,7 +596,8 @@ export function DepositStep({
                 amountUsd={plan.amountUsd}
                 waiting={waiting}
                 host={hostOf(plan)}
-                faucetAbove={faucet}
+                // the button at the top goes with the press: after it, the funds step has its own
+                faucetAbove={faucet && !pressed}
                 readAgain={funded}
                 onLeave={onClose}
                 foot={pressed ? null : foot}
