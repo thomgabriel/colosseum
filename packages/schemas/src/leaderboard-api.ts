@@ -1,11 +1,14 @@
 import { z } from 'zod';
+import { BasketSheet } from './basket-sheet';
 import { Address, AssetId, ChainId, DecimalString, Sourced } from './chain';
 import { Provenance } from './enums';
 
 // GET /v1/leaderboard: every open vault the server knows on a chain, ranked by what it made or lost.
 // Anybody may read it, so a row holds only what is public on chain or measured by the server: no user
 // id, no email, no name the owner typed and no number among their vaults (only the owner is answered
-// that, gate VAULT-NUMBER). The owner is the short form of its wallet; the full one is on chain.
+// that, gate VAULT-NUMBER). The owner is the short form of its wallet; the full one is on chain. The
+// goal the vault was opened for is answered by its five structured fields only (gate LEADERBOARD,
+// amended by Thom, Oct 30), never any text from the plan or its conversation.
 
 /** The chains a leaderboard is answered for. Solana's test network today; more join this list. */
 export const LeaderboardChain = z.enum(['solana']);
@@ -43,6 +46,19 @@ export const LeaderboardPnl = Sourced.extend({
 });
 export type LeaderboardPnl = z.infer<typeof LeaderboardPnl>;
 
+/**
+ * The goal a vault was opened for, as the board names the vault ("Grow $5,000, with no date set."):
+ * the five structured fields of its plan's sheet and nothing else, where the plan is its owner's own.
+ */
+export const LeaderboardGoal = BasketSheet.pick({
+  goal: true,
+  amountUsd: true,
+  horizonMonths: true,
+  horizonOpen: true,
+  incomeTargetUsdMonthly: true,
+}).strict();
+export type LeaderboardGoal = z.infer<typeof LeaderboardGoal>;
+
 /** Why a row has no figure for what it made: no deposit the server holds, or never read. */
 export const LeaderboardNoPnl = z.enum(['no_deposit_record', 'never_read']);
 export type LeaderboardNoPnl = z.infer<typeof LeaderboardNoPnl>;
@@ -62,6 +78,12 @@ export const LeaderboardRow = z.object({
   noPnl: LeaderboardNoPnl.nullable(),
   /** The shared portfolio its newest snapshot shows it following, where the server names it. */
   follows: z.object({ name: z.string(), slug: z.string() }).nullable(),
+  /**
+   * The goal it was opened for, where the server holds the plan and the plan is the owner's own (or
+   * made from a link). Null otherwise: a vault that follows a shared portfolio, one made outside this
+   * app, one whose plan no longer reads.
+   */
+  goal: LeaderboardGoal.nullable().default(null),
 });
 export type LeaderboardRow = z.infer<typeof LeaderboardRow>;
 

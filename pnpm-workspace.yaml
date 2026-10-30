@@ -57,6 +57,7 @@ overrides:
   'follow-redirects@>=1.16.0 <1.16.1': ^1.16.1
 auditConfig:
   ignoreGhsas:
+    - GHSA-qr28-fpjm-wq7f # decode-uri-component, under @walletconnect's query-string
     - GHSA-rfgv-xxqx-mfg5 # undici, under @scalar/fastify-api-reference
     - GHSA-w293-vg96-wgc3 # undici, under @scalar/fastify-api-reference
     - GHSA-82x6-q7mm-w9cf # toml, under @kamino-finance/klend-sdk

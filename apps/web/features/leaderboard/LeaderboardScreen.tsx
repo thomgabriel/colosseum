@@ -28,8 +28,10 @@ import { ScreenWait } from '../../components/waits/ScreenWait';
 import { type Lang, LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { API } from '../../lib/api';
+import { dollars as whole } from '../goal/sheet';
 import { formatBps, tokenName } from '../order/amounts';
 import { AssetMark } from '../order/PlanView';
+import { goalLine } from '../order/plain';
 import { dollars } from '../portfolio/figures';
 import { localTime } from '../portfolio-section/list-figures';
 import { shortAddress } from '../shared/use-person';
@@ -216,17 +218,37 @@ function Board({ answer, now }: { answer: LeaderboardResponse; now: number }) {
 }
 
 /**
- * What a vault is called here: by its address in short. The name its owner typed and its number among
- * their vaults are theirs alone (gate VAULT-NUMBER), and this page is everyone's.
+ * What a vault is called here (gate LEADERBOARD, amended by Thom, Oct 30): the goal it was opened for,
+ * as its own page says it, at what was deposited where that differs from the goal's amount (as
+ * vault-title.ts says it); else the shared portfolio it follows; else its address in short. The name its
+ * owner typed and its number among their vaults are theirs alone (gate VAULT-NUMBER), and this page is
+ * everyone's: the server answers the goal's five structured fields and nothing else.
  */
-export const titleOf = (row: LeaderboardRow, w: ReturnType<typeof useT>['leaderboard']) =>
-  w.unnamed(shortAddress(row.address));
+export function titleOf(
+  row: LeaderboardRow,
+  t: Pick<ReturnType<typeof useT>, 'goal' | 'leaderboard'>,
+  lang: Lang,
+): { title: string; named: boolean } {
+  const { goal } = row;
+  if (goal) {
+    const put = row.pnl ? Number(row.pnl.depositsUsd) : null;
+    const title =
+      put !== null && put > 0 && put !== goal.amountUsd
+        ? goalLine({ ...goal, incomeTargetUsdMonthly: undefined }, t, whole(put, lang), (usd) =>
+            whole(usd, lang),
+          )
+        : goalLine(goal, t, whole(goal.amountUsd, lang), (usd) => whole(usd, lang));
+    return { title, named: true };
+  }
+  if (row.follows) return { title: t.leaderboard.follows(row.follows.name), named: true };
+  return { title: t.leaderboard.unnamed(shortAddress(row.address)), named: false };
+}
 
 function Row({ row, now }: { row: LeaderboardRow; now: number }) {
   const t = useT();
   const lang = useLang();
   const w = t.leaderboard;
-  const title = titleOf(row, w);
+  const { title, named } = titleOf(row, t, lang);
   const pinned = `${KIT_ABOVE_LINK} ${KIT_NUMERIC}`;
   const shown = row.holdings.slice(0, SHOWN);
   const more = row.holdings.length - shown.length;
@@ -254,9 +276,17 @@ function Row({ row, now }: { row: LeaderboardRow; now: number }) {
         >
           {title}
         </Link>
-        {row.follows && (
+        {row.goal && row.follows && (
           <span data-ui="leaderboard-follows" className="block text-caption text-muted-foreground">
             {w.follows(row.follows.name)}
+          </span>
+        )}
+        {named && (
+          <span
+            data-ui="leaderboard-address"
+            className="block font-mono text-source text-muted-foreground"
+          >
+            {shortAddress(row.address)}
           </span>
         )}
       </td>
