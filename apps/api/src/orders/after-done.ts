@@ -11,12 +11,16 @@ import type { StoredOrder } from './store';
 // (snapshot-in-api.ts, `readVault`): the chains it reads, under their labels, and nothing else. It never
 // holds up or fails the order: it starts after the answer, and what goes wrong is logged.
 
-/** Reads one vault and keeps its row; null where nothing reads that chain under that label. */
-export type ReadVault = (
-  chain: ChainId,
-  provenance: Provenance,
-  address: string,
-) => Promise<{ outcome: 'read' | 'none' } | null>;
+/** The worker's reader: which chains it reads under which labels, and one vault read and kept as its row. */
+export type VaultReader = {
+  reads(chain: ChainId, provenance: Provenance): boolean;
+  /** Null where nothing reads that chain under that label. */
+  read(
+    chain: ChainId,
+    provenance: Provenance,
+    address: string,
+  ): Promise<{ outcome: 'read' | 'none' } | null>;
+};
 
 type Log = {
   info(obj: object, msg?: string): void;
@@ -48,29 +52,34 @@ export async function vaultsOfDone(
   if (request.vault) return { chain, addresses: [request.vault.address] };
   const owner = order.owner[chainFamily(chain)];
   if (!owner || !order.basketId) return null;
+  const entry = deps.chains.get(chain);
   const [cached] = await deps.db
     .select({ address: vaults.address })
     .from(vaults)
     .where(
       and(
         eq(vaults.chainId, chain),
+        // One chain id can be a test network's and a mainnet's: the row of this server's label only.
+        eq(vaults.provenance, entry.provenance),
         eq(vaults.owner, owner),
         eq(vaults.onchainBasketId, order.basketId),
       ),
     )
     .limit(1);
   if (cached) return { chain, addresses: [cached.address] };
-  const state = await planVault(deps.chains.get(chain), owner as Address, order.basketId);
+  const state = await planVault(entry, owner as Address, order.basketId);
   return state ? { chain, addresses: [state.address] } : null;
 }
 
 /**
  * What `OrderDeps.onOrderDone` is given on a server that reads vaults: each done order's vaults read
- * once, `afterMs` after it is done, one order once. Returns at once; never throws.
+ * once, `afterMs` after it is done, one order once. A chain the worker does not read is not asked
+ * anything, the address of a new vault included. One vault that cannot be read does not stop the next.
+ * Returns at once; never throws.
  */
 export function readOnDone(
   deps: Pick<OrderDeps, 'db' | 'chains'>,
-  read: () => ReadVault | null,
+  reader: () => VaultReader | null,
   log: Log,
   afterMs: number = READ_AFTER_MS,
 ): (stored: StoredOrder) => void {
@@ -86,25 +95,33 @@ export function readOnDone(
 
   async function readNow(stored: StoredOrder) {
     const orderId = stored.order.id;
-    try {
-      const reader = read();
-      if (!reader) return;
-      const named = await vaultsOfDone(deps, stored);
-      if (!named) return;
-      const { provenance } = deps.chains.get(named.chain);
-      for (const address of named.addresses) {
-        const outcome = await reader(named.chain, provenance, address);
-        if (outcome)
-          log.info(
-            { orderId, chain: named.chain, outcome: outcome.outcome },
-            'the vault of a done order was read',
-          );
-      }
-    } catch (err) {
+    const notRead = (err: unknown) =>
       log.warn(
         { err: loggable(err), orderId },
         'the vault of a done order was not read: it is read at the next pass',
       );
+    try {
+      const worker = reader();
+      const chain = stored.order.legs[0]?.chain;
+      if (!worker || !chain) return;
+      const { provenance } = deps.chains.get(chain);
+      if (!worker.reads(chain, provenance)) return;
+      const named = await vaultsOfDone(deps, stored);
+      if (!named) return;
+      for (const address of named.addresses) {
+        try {
+          const outcome = await worker.read(chain, provenance, address);
+          if (outcome)
+            log.info(
+              { orderId, chain, outcome: outcome.outcome },
+              'the vault of a done order was read',
+            );
+        } catch (err) {
+          notRead(err);
+        }
+      }
+    } catch (err) {
+      notRead(err);
     }
   }
 }

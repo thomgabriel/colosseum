@@ -30,4 +30,4 @@ startRiskWarm(app, process.env, { log: app.log, after: warmingUp });
 const snapshots = startSnapshotInApi(process.env, { log: app.log });
 // And the vault of each done order read at once with the worker's reader, so its value shows without
 // waiting for the next pass (gate SNAPSHOT-IN-API, amended Oct 30).
-if (snapshots) readVaultsWhenDone(app, snapshots.readVault);
+if (snapshots) readVaultsWhenDone(app, { reads: snapshots.readsChain, read: snapshots.readVault });

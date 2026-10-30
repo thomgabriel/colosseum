@@ -92,6 +92,8 @@ export type SnapshotInApiDeps = {
 
 export type SnapshotInApi = {
   stop(): void;
+  /** Whether the loop's start set up a source for this chain and label: none before it, or after a refusal. */
+  readsChain(chain: ChainId, provenance: Provenance): boolean;
   /**
    * Reads one vault now and keeps its row (apps/snapshot's `snapshotVault`), on a chain the loop reads
    * and under the label it reads it with. Null when the loop has no source for that chain and label
@@ -247,8 +249,11 @@ export function startSnapshotInApi(env: EnvLike, deps: SnapshotInApiDeps): Snaps
     keepAwake = null;
   }
 
+  const sourceOf = (chain: ChainId, provenance: Provenance) =>
+    sources.find((s) => s.chain === chain && s.provenance === provenance);
+
   async function readVault(chain: ChainId, provenance: Provenance, address: string) {
-    const source = sources.find((s) => s.chain === chain && s.provenance === provenance);
+    const source = sourceOf(chain, provenance);
     if (!source) return null;
     try {
       return await snapshotVault((deps.db ?? (() => sharedDb().db))(), source, address);
@@ -259,5 +264,9 @@ export function startSnapshotInApi(env: EnvLike, deps: SnapshotInApiDeps): Snaps
   }
 
   later(deps.firstPassDelayMs ?? FIRST_PASS_DELAY_MS, () => void attempt());
-  return { stop, readVault };
+  return {
+    stop,
+    readsChain: (chain, provenance) => sourceOf(chain, provenance) !== undefined,
+    readVault,
+  };
 }

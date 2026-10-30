@@ -193,8 +193,12 @@ describe('a read of one vault', () => {
     };
     const { handle } = start(ON, { sources: async () => [source] });
     if (!handle) throw new Error('the loop did not start');
+    expect(handle.readsChain('solana', 'sandbox')).toBe(false);
     expect(await handle.readVault('solana', 'sandbox', 'Vault1')).toBeNull();
     await vi.advanceTimersByTimeAsync(FIRST_PASS_DELAY_MS + 1_000);
+    expect(handle.readsChain('solana', 'sandbox')).toBe(true);
+    expect(handle.readsChain('robinhood', 'sandbox')).toBe(false);
+    expect(handle.readsChain('solana', 'live')).toBe(false);
     expect(await handle.readVault('robinhood', 'sandbox', 'Vault1')).toBeNull();
     expect(await handle.readVault('solana', 'live', 'Vault1')).toBeNull();
     expect(asked).toEqual([]);

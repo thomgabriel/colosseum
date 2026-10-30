@@ -15,8 +15,8 @@ import { readVaultsWhenDone } from '../routes/v1/index';
 import mockYields from '../testing/fixtures/mock-yields.json';
 import { orderFlow } from '../testing/flow';
 import { person, type TestIssuer, testApp, testDb, testIssuer } from '../testing/harness';
-import { seedSnapshot } from '../testing/portfolio-world';
-import { READ_AFTER_MS, type ReadVault, readOnDone, vaultsOfDone } from './after-done';
+import { seedSnapshot, seedVault, vaultAddress } from '../testing/portfolio-world';
+import { READ_AFTER_MS, readOnDone, type VaultReader, vaultsOfDone } from './after-done';
 import type { ChainRegistry } from './chains';
 import type { PlanInputs } from './personalize';
 import type { StoredOrder } from './store';
@@ -76,11 +76,14 @@ describe('the vault of a done order, read once', () => {
     vi.useFakeTimers();
     try {
       const asked: unknown[][] = [];
-      const read: ReadVault = async (...a) => {
-        asked.push(a);
-        return { outcome: 'read' };
+      const reader: VaultReader = {
+        reads: () => true,
+        read: async (...a) => {
+          asked.push(a);
+          return { outcome: 'read' };
+        },
       };
-      const listen = readOnDone({ db: noDb, chains }, () => read, quiet);
+      const listen = readOnDone({ db: noDb, chains }, () => reader, quiet);
       const order = done({ request: { type: 'withdraw', vaults: ['V1'] } });
       listen(order);
       listen(order);
@@ -99,7 +102,7 @@ describe('the vault of a done order, read once', () => {
     vi.useFakeTimers();
     try {
       const warned: string[] = [];
-      let reader: ReadVault | null = null;
+      let reader: VaultReader | null = null;
       const listen = readOnDone({ db: noDb, chains }, () => reader, {
         info: () => {},
         warn: (_o, msg) => warned.push(msg ?? ''),
@@ -109,14 +112,68 @@ describe('the vault of a done order, read once', () => {
       ).not.toThrow();
       await vi.advanceTimersByTimeAsync(READ_AFTER_MS);
       expect(warned).toEqual([]);
-      reader = async () => {
-        throw new Error('Unavailable: the node did not answer');
+      reader = {
+        reads: () => true,
+        read: async () => {
+          throw new Error('Unavailable: the node did not answer');
+        },
       };
       listen(done({ id: 'b', request: { type: 'withdraw', vaults: ['V1'] } }));
       await vi.advanceTimersByTimeAsync(READ_AFTER_MS);
       expect(warned).toEqual([
         'the vault of a done order was not read: it is read at the next pass',
       ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('asks a chain the worker does not read nothing, not even the address of a new vault', async () => {
+    vi.useFakeTimers();
+    try {
+      const getVaults = vi.fn(async () => [{ basketId: '7', address: 'New1' }]);
+      const onChain = {
+        get: () => ({ provenance: 'sandbox' as Provenance, adapter: { getVaults } }),
+      } as unknown as ChainRegistry;
+      const read = vi.fn(async () => ({ outcome: 'read' as const }));
+      const warned: string[] = [];
+      const listen = readOnDone(
+        { db: noDb, chains: onChain },
+        () => ({ reads: () => false, read }),
+        { info: () => {}, warn: (_o, msg) => warned.push(msg ?? '') },
+      );
+      listen(done({ request: { type: 'buy' }, basketId: '7' }));
+      await vi.advanceTimersByTimeAsync(READ_AFTER_MS);
+      expect(getVaults).not.toHaveBeenCalled();
+      expect(read).not.toHaveBeenCalled();
+      // Nothing was tried, so nothing failed: `noDb` would have thrown had the cache been asked.
+      expect(warned).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('goes on to the next vault when one read fails', async () => {
+    vi.useFakeTimers();
+    try {
+      const asked: string[] = [];
+      const warned: string[] = [];
+      const listen = readOnDone(
+        { db: noDb, chains },
+        () => ({
+          reads: () => true,
+          read: async (_c, _p, address) => {
+            asked.push(address);
+            if (address === 'V1') throw new Error('Unavailable: the node did not answer');
+            return { outcome: 'read' };
+          },
+        }),
+        { info: () => {}, warn: (_o, msg) => warned.push(msg ?? '') },
+      );
+      listen(done({ request: { type: 'withdraw', vaults: ['V1', 'V2'] } }));
+      await vi.advanceTimersByTimeAsync(READ_AFTER_MS);
+      expect(asked).toEqual(['V1', 'V2']);
+      expect(warned).toHaveLength(1);
     } finally {
       vi.useRealTimers();
     }
@@ -152,20 +209,23 @@ beforeAll(async () => {
   }));
   undo.push(() => app.close());
   // The worker's reader, as the server hands it in: here the mock chain's vault, kept as a row.
-  readVaultsWhenDone(app, async (chain, provenance, address) => {
-    reads.push({ chain, provenance, address });
-    if (failing) throw new Error('Unavailable: the node did not answer');
-    const vault = await registry.get(chain).adapter.getVault(address);
-    if (!vault) return { outcome: 'none' };
-    await seedSnapshot(data.db, {
-      chain,
-      address,
-      owner: vault.owner,
-      onchainBasketId: vault.basketId,
-      observedAt: new Date(),
-      valueUsd: 4_321.5,
-    });
-    return { outcome: 'read' };
+  readVaultsWhenDone(app, {
+    reads: () => true,
+    read: async (chain, provenance, address) => {
+      reads.push({ chain, provenance, address });
+      if (failing) throw new Error('Unavailable: the node did not answer');
+      const vault = await registry.get(chain).adapter.getVault(address);
+      if (!vault) return { outcome: 'none' };
+      await seedSnapshot(data.db, {
+        chain,
+        address,
+        owner: vault.owner,
+        onchainBasketId: vault.basketId,
+        observedAt: new Date(),
+        valueUsd: 4_321.5,
+      });
+      return { outcome: 'read' };
+    },
   });
 });
 afterAll(async () => {
@@ -192,6 +252,31 @@ const sheet: BasketSheet = {
 };
 
 describe('a done order on the mock chain', () => {
+  it("finds a new vault's address under this server's label, not a row of the same number under another", async () => {
+    const who = data.track(await person(issuer, 'solana'));
+    const owner = who.owner.solana;
+    if (!owner) throw new Error('no wallet');
+    await seedVault(data.db, {
+      chain: 'solana',
+      owner,
+      address: vaultAddress('solana'),
+      onchainBasketId: '77',
+      provenance: 'sandbox',
+    });
+    const onChain = {
+      get: () => ({
+        provenance: 'mock' as Provenance,
+        adapter: { getVaults: async () => [{ basketId: '77', address: 'OnThisChain' }] },
+      }),
+    } as unknown as ChainRegistry;
+    const stored = done({ request: { type: 'buy' }, basketId: '77' });
+    stored.order.owner = { solana: owner };
+    expect(await vaultsOfDone({ db: data.db, chains: onChain }, stored)).toEqual({
+      chain: 'solana',
+      addresses: ['OnThisChain'],
+    });
+  });
+
   it('has its new vault read once, and the leaderboard shows its value; money added is read too', async () => {
     const who = data.track(await person(issuer, 'solana'));
     await fund(who, undefined, 50_000);
