@@ -25,7 +25,7 @@ import {
 import { and, asc, DrizzleQueryError, eq, gte, inArray, lt, or } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { newChainState } from './discover';
-import { type PassContext, READS_AT_ONCE, snapshotChain } from './pass';
+import { type PassContext, READS_AT_ONCE, snapshotChain, snapshotVault } from './pass';
 import { runSnapshots, STALE_RUN_MIN_MS } from './run';
 import type { ChainSource } from './source';
 import {
@@ -1287,6 +1287,55 @@ describe('a pass over a chain', () => {
     s.tick([w]);
     await snapshotChain(s.ctx(), silent, state);
     expect(await rowsOf('solana', sample.address)).toHaveLength(2);
+  });
+});
+
+describe('a read of one vault outside a pass', () => {
+  it('writes the row a pass would, under the source label and joined to its plan, and opens no run', async () => {
+    const s = stage(29);
+    const w = world('solana');
+    const vault = await openVault(w, who('solana', 't-one-read'), '1');
+    const basketId = await plan();
+    await cacheRow(vault, { basketId });
+    const runsBefore = (await s.runs('solana')).length;
+
+    const read = await snapshotVault(db, w.source, vault.address);
+    expect(read).toEqual({ outcome: 'read', valueUsd: expect.stringMatching(/^\d+\.\d{2}$/) });
+    const [row] = await rowsOf('solana', vault.address);
+    // 1,000 dollars in, less what the mock's swaps cost.
+    expect(Number(row?.valueUsd)).toBeGreaterThan(990);
+    expect(row).toMatchObject({
+      owner: vault.owner,
+      onchainBasketId: '1',
+      basketId,
+      valueUsd: read.outcome === 'read' ? read.valueUsd : null,
+      provenance: 'mock',
+      source: 'chain-mock',
+      method: SNAPSHOT_METHOD,
+    });
+    expect(row?.positions.map((p) => p.asset).sort()).toEqual(['solana:gold', 'solana:spy']);
+    expect(await s.runs('solana')).toHaveLength(runsBefore);
+    // The same read again is the same row.
+    await snapshotVault(db, w.source, vault.address);
+    expect(await rowsOf('solana', vault.address)).toHaveLength(1);
+  });
+
+  it('answers none for an address with no vault, and throws, writing nothing, when a price of what it holds is not read', async () => {
+    const w = world('solana');
+    expect(await snapshotVault(db, w.source, who('solana', 't-one-read-empty'))).toEqual({
+      outcome: 'none',
+    });
+    const vault = await openVault(w, who('solana', 't-one-read-dark'), '1');
+    const dark: ChainSource = {
+      ...w.source,
+      getPrices: async () => {
+        throw new ChainError('Unavailable', `request to ${NODE} failed`);
+      },
+    };
+    await expect(snapshotVault(db, dark, vault.address)).rejects.toThrow(
+      'no price could be read: Unavailable',
+    );
+    expect(await rowsOf('solana', vault.address)).toHaveLength(0);
   });
 });
 
