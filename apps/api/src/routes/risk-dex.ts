@@ -20,6 +20,8 @@ import { READ_AT_HEADER, RISK_CACHE_CONTROL, riskReadCacheOf } from './risk-cach
 export const DEX_MAX_IDS = 16;
 /** Assets read at once within one answer: three reads each, against the process's one pool. */
 const ASSETS_AT_ONCE = 2;
+/** Lending pools read at once within `GET /risk/lending`: three reads each. */
+const LEND_POOLS_AT_ONCE = 2;
 /** What a pool row keeps: the page's fields, and the provenance of its figures. */
 const POOL_FIELDS = [
   'address',
@@ -201,6 +203,48 @@ export async function registerRiskDexRoute(app: FastifyInstance) {
         .type('application/json; charset=utf-8')
         .header('cache-control', RISK_CACHE_CONTROL)
         .send(body as never);
+    },
+  );
+
+  f.get(
+    '/risk/lending',
+    {
+      schema: {
+        summary: 'Every lending pool with its fact sheet and its histories, in one answer',
+        description: `What the lending and stablecoins pages read of each pool of \`GET /risk/facts/lending\`: the status and body of \`GET /risk/facts/lending/{account}\` and of its history over 7 and 30 days. A route's refusal is that pool's alone. Dated from its oldest part.\n\n${DISCLAIMER.en}`,
+      },
+    },
+    async (req, reply) => {
+      const h = riskReadCacheOf(app)?.warmHeaders(req) ?? {};
+      const list = await raw('/risk/facts/lending', h);
+      if (list.status !== 200)
+        return reply
+          .code(list.status >= 500 || list.status === 0 ? 502 : list.status)
+          .type('application/json; charset=utf-8')
+          .send(list.body as never);
+      const accounts =
+        (JSON.parse(list.body) as { pools?: Array<{ account: string }> }).pools ?? [];
+      let at = list.at;
+      let failed = false;
+      const pools = await inTurn(accounts, LEND_POOLS_AT_ONCE, async ({ account }) => {
+        const base = `/risk/facts/lending/${enc(account)}`;
+        const [sheet, h7, h30] = await Promise.all([
+          raw(base, h),
+          raw(`${base}/history?days=7`, h),
+          raw(`${base}/history?days=30`, h),
+        ]);
+        at = Math.min(at, sheet.at, h7.at, h30.at);
+        // Kept only when no part failed: a failure is asked again next time, as a part's own read is.
+        if ([sheet, h7, h30].some((a) => a.status === 0 || a.status >= 500)) failed = true;
+        return `{"account":${JSON.stringify(account)},"sheet":${part(sheet)},"h7":${part(h7)},"h30":${part(h30)}}`;
+      });
+      return reply
+        .code(failed ? 207 : 200)
+        .type('application/json; charset=utf-8')
+        .header(READ_AT_HEADER, String(at))
+        .send(
+          `{"pools":[${pools.join(',')}],"disclaimer":${JSON.stringify(DISCLAIMER.en)}}` as never,
+        );
     },
   );
 }

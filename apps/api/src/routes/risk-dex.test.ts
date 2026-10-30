@@ -113,6 +113,57 @@ describe('GET /risk/dex', () => {
   });
 });
 
+describe('GET /risk/lending', () => {
+  async function lendApp(fail?: string) {
+    const a = Fastify();
+    a.setValidatorCompiler(validatorCompiler);
+    a.setSerializerCompiler(serializerCompiler);
+    registerRiskReadCache(a);
+    const read: string[] = [];
+    a.addHook('onRequest', async (req) => {
+      if (req.url !== '/risk/lending') read.push(req.url);
+    });
+    a.get('/risk/facts/lending', async () => ({ pools: [{ account: 'P1' }, { account: 'P2' }] }));
+    a.get('/risk/facts/lending/:account', async (req, reply) => {
+      const { account } = req.params as { account: string };
+      if (account === fail) return reply.code(500).send({ error: 'down' });
+      return { account };
+    });
+    a.get('/risk/facts/lending/:account/history', async (req) => ({
+      account: (req.params as { account: string }).account,
+      days: Number((req.query as { days: string }).days),
+    }));
+    await registerRiskDexRoute(a);
+    return { a, read };
+  }
+
+  it('answers every pool with its sheet and histories, and keeps the answer', async () => {
+    const { a, read } = await lendApp();
+    const r = await a.inject({ method: 'GET', url: '/risk/lending' });
+    expect(r.statusCode).toBe(200);
+    const body = r.json();
+    expect(body.pools.map((p: { account: string }) => p.account)).toEqual(['P1', 'P2']);
+    expect(body.pools[1]).toMatchObject({
+      sheet: { status: 200, body: { account: 'P2' } },
+      h7: { status: 200, body: { days: 7 } },
+      h30: { status: 200, body: { days: 30 } },
+    });
+    expect(read).toHaveLength(7);
+    await a.inject({ method: 'GET', url: '/risk/lending' });
+    expect(read).toHaveLength(7);
+  });
+
+  it('keeps no answer with a part that failed: it is asked again next time', async () => {
+    const { a, read } = await lendApp('P2');
+    const r = await a.inject({ method: 'GET', url: '/risk/lending' });
+    expect(r.statusCode).toBe(207);
+    expect(r.json().pools[1].sheet.status).toBe(500);
+    const before = read.length;
+    await a.inject({ method: 'GET', url: '/risk/lending' });
+    expect(read.length).toBeGreaterThan(before);
+  });
+});
+
 describe('the warm-up', () => {
   it('reads each chain’s list and each asset’s fact sheet, keeps them, and reads nothing else', async () => {
     const { a, read } = await app();

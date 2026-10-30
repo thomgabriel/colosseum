@@ -29,11 +29,17 @@ const notServed = (status: number, body: unknown) =>
  */
 export const notKept = (r: Res) => !r.ok && (r.status === 0 || r.status >= 500);
 
+/** The tolerance the pages first read at: a sale's cost at most 1%. */
+export const TAU = 0.01;
+/** The sale the hours-of-the-week tile is read at (HeatTile.tsx says why). */
+export const HEAT_SIZE = 50_000;
+
 /** How long one probe of the API waits, and how many it makes before saying the API did not answer. */
 const PROBE_MS = 3000;
 const PROBE_TRIES = 3;
-/** Reads of the risk API out at once, from one page. The probe is not one of them. */
-export const READS_AT_ONCE = 3;
+/** Reads of the risk API out at once, from one page; the probe is not one of them. Six: the API keeps
+ *  its answers (risk-cache.ts), so most are a kept answer, and a page of three at a time waited on itself. */
+export const READS_AT_ONCE = 6;
 /** The longest a read holds its place: past it, it is given up as no answer and the next read goes. */
 export const READ_MS = 30_000;
 
@@ -61,7 +67,15 @@ export type Reader = {
    * gives back the way to stop. A reader of a stub may leave it out.
    */
   onAnswer?: (heard: () => void) => () => void;
+  /**
+   * Keeps answers the server already read for this page (server-seed.ts), as if this reader had read
+   * them: a path it has, or is reading, keeps its own. A reader of a stub may leave it out.
+   */
+  seed?: (answers: readonly SeedAnswer[]) => void;
 };
+
+/** An answer of the risk API read on the server, handed to the page with its HTML. */
+export type SeedAnswer = { path: string; status: number; body: unknown };
 
 /** An answer as the pages read it: its body when the API answered 2xx, else the reason it did not. */
 export function resOf(status: number, body: unknown): Res {
@@ -139,7 +153,14 @@ export function makeReader(base: string = RISK_API, fetcher: typeof fetch = fetc
       listeners.delete(heard);
     };
   };
-  return { get, probe, onAnswer };
+  const seed = (answers: readonly SeedAnswer[]) => {
+    for (const a of answers) {
+      if (cache.has(a.path)) continue;
+      const r = resOf(a.status, a.body);
+      if (!notKept(r)) cache.set(a.path, Promise.resolve(r));
+    }
+  };
+  return { get, probe, onAnswer, seed };
 }
 
 /**
@@ -202,6 +223,8 @@ export const R = {
   sheet: (asset: string, n: number) => `/risk/facts/assets/${enc(asset)}?sizeUsd=${size(n)}`,
   hist: (asset: string, tau: number) => `/risk/assets/${enc(asset)}/history?days=30&tau=${tau}`,
   lendList: () => '/risk/facts/lending',
+  /** Every lending pool's sheet and histories in one answer (`GET /risk/lending`). */
+  lendAll: () => '/risk/lending',
   lend: (account: string) => `/risk/facts/lending/${enc(account)}`,
   lendH: (account: string, days: number) =>
     `/risk/facts/lending/${enc(account)}/history?days=${days}`,

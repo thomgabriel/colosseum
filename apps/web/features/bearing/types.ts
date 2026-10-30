@@ -81,6 +81,10 @@ type DexAnswer = { status: number; body: unknown };
 export type DexBody = {
   assets: Array<{ id: string; sheet: DexAnswer; hist: DexAnswer; pools: DexAnswer }>;
 };
+/** `GET /risk/lending`: each pool's reads, each with its status and body as its route answered. */
+export type LendAllBody = {
+  pools: Array<{ account: string; sheet: DexAnswer; h7: DexAnswer; h30: DexAnswer }>;
+};
 export type RecordedBody = { pools: Array<{ address: string }> };
 
 export type Exit = {

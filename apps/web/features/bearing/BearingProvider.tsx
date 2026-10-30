@@ -18,7 +18,7 @@ import {
   rememberBearingChain,
   withChain,
 } from './chain';
-import { gate, inPool, makeReader, R, type Reader, type Res, resOf } from './data';
+import { gate, inPool, makeReader, R, type Reader, type Res, resOf, TAU } from './data';
 import type { DexAsset } from './dex';
 import { type Clock, maxT, STALE_AFTER_MS } from './fact';
 import { REGIMES } from './format';
@@ -27,6 +27,7 @@ import type {
   AssetsBody,
   DexBody,
   HistBody,
+  LendAllBody,
   LendBody,
   LendHistBody,
   LendListBody,
@@ -40,13 +41,13 @@ import type {
 // stale, and what the person chose on each page (filters, metric, range, tolerance, the sale they
 // simulated). It lives in the section's layout, so it outlives a page.
 
-export const TAU = 0.01;
+export { TAU };
 /**
  * Assets asked in one `GET /risk/dex`, and how many of those answers are read at once: fewer than the
  * reader's `READS_AT_ONCE`, so the page's other reads are not queued behind every batch.
  */
 export const DEX_BATCH = 8;
-export const DEX_BATCHES_AT_ONCE = 2;
+export const DEX_BATCHES_AT_ONCE = 4;
 /** How often an open page looks at its clock again. */
 export const TICK_MS = 60_000;
 
@@ -280,7 +281,19 @@ export function BearingProvider({
       // The lending pools' list alone: the reads of each pool need not wait for the chain's assets.
       memo.current.lend ??= lendListOf().then(async (lendList) => {
         const list = lendList.ok ? lendList.body.pools : [];
+        // Every pool in one answer; an API without that route, or one whose answer failed, has each
+        // pool read on its own, as before.
+        const all = await reader.get<LendAllBody>(R.lendAll());
+        const inOne = new Map(all.ok ? all.body.pools.map((p) => [p.account, p]) : []);
         const rows = await inPool(list, 4, async (meta) => {
+          const one = inOne.get(meta.account);
+          if (one)
+            return {
+              meta,
+              sheet: resOf(one.sheet.status, one.sheet.body) as Res<LendBody>,
+              h7: resOf(one.h7.status, one.h7.body) as Res<LendHistBody>,
+              h30: resOf(one.h30.status, one.h30.body) as Res<LendHistBody>,
+            };
           const [sheet, h7, h30] = await Promise.all([
             reader.get<LendBody>(R.lend(meta.account)),
             reader.get<LendHistBody>(R.lendH(meta.account, 7)),
