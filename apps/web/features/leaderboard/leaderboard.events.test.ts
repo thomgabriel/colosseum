@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { click, find, mount, settle, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import { inLanguage } from '../account/test/screen';
+import { dollars } from '../goal/sheet';
 import { localTime } from '../portfolio-section/list-figures';
 import { LeaderboardScreen, readAgo } from './LeaderboardScreen';
 
@@ -282,5 +283,16 @@ describe('the leaderboard page', () => {
     expect(host.querySelector('[data-ui="leaderboard-vault"]')?.textContent).toBe(
       pt.unnamed('9xQe…VFin'),
     );
+  });
+
+  it('says a vault’s goal in Portuguese', async () => {
+    const goal = { goal: 'grow' as const, amountUsd: 5000, horizonMonths: 60, horizonOpen: true };
+    const { host } = await page(
+      () => json({ ...ANSWER, vaults: [row({ rank: 1, address: A, goal })] }),
+      'pt',
+    );
+    const said = host.querySelector('[data-ui="leaderboard-vault"]')?.textContent;
+    expect(said).toBe(dictionary('pt').goal.card.sentenceOpen.grow(dollars(5000, 'pt')));
+    expect(said).not.toBe(en.goal.card.sentenceOpen.grow('$5,000'));
   });
 });

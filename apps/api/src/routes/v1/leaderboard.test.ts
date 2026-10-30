@@ -11,7 +11,12 @@ import {
   vaultNumbers,
   vaults,
 } from '@colosseum/db';
-import { DISCLAIMER, type IntentRequest, LeaderboardResponse } from '@colosseum/schemas';
+import {
+  type BasketProposal,
+  DISCLAIMER,
+  type IntentRequest,
+  LeaderboardResponse,
+} from '@colosseum/schemas';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -358,23 +363,23 @@ describe('GET /v1/leaderboard', () => {
       },
       card: { ...fixture.card, exit: { text: secret, costBps: null } },
     };
-    /** A plan stored as made by `maker`, and the vault of `holder` joined to it. */
-    const joined = async (holder: Someone, maker: Someone, number: string) => {
-      const [stored] = await data.db
-        .insert(proposals)
-        .values({
-          inputsHash: `leaderboard-test:${randomUUID()}`,
-          userId: maker.userId,
-          proposal: { ...plan, inputsHash: `leaderboard-test:${randomUUID()}` },
-          engineVersion: 'test',
-          shelfVersion: 'test',
-          paramsHash: 'test',
-        })
-        .returning({ id: proposals.id });
-      if (!stored) throw new Error('plan insert');
+    /** A plan stored as `made` says, and the vault of `holder` joined to it. */
+    const joined = async (
+      holder: Someone,
+      made: { by?: Someone; fromLink?: boolean; stored?: BasketProposal },
+      number: string,
+    ) => {
+      const planId = await data.storePlan({
+        ...(made.stored ?? plan),
+        inputsHash: `leaderboard-test:${randomUUID()}`,
+      });
+      await data.db
+        .update(proposals)
+        .set({ userId: made.by?.userId ?? null, fromLink: made.fromLink ?? false })
+        .where(eq(proposals.id, planId));
       const [basket] = await data.db
         .insert(baskets)
-        .values({ userId: holder.userId, kind: 'personal', proposalId: stored.id })
+        .values({ userId: holder.userId, kind: 'personal', proposalId: planId })
         .returning({ id: baskets.id });
       if (!basket) throw new Error('basket insert');
       const vault = await vaultOf(holder, { number, name: secret });
@@ -383,9 +388,19 @@ describe('GET /v1/leaderboard', () => {
       await snapshot(holder, vault, number, 100, 10);
       return vault;
     };
-    const own = await joined(a, a, '21');
+    const own = await joined(a, { by: a }, '21');
     // b holds a vault opened for a plan c made: what that plan says is c's, not b's to show
-    const others = await joined(b, c, '22');
+    const others = await joined(b, { by: c }, '22');
+    // a plan made from a link is anybody's who holds its id, whoever made it
+    const fromLink = await joined(b, { by: c, fromLink: true }, '24');
+    // a plan that names nobody and is not from a link: held, and not said
+    const nobodys = await joined(b, {}, '25');
+    // a plan of the owner's own that no longer reads says nothing, not a part of itself
+    const unreadable = await joined(
+      a,
+      { by: a, stored: { ...plan, lines: 'no longer lines' } as unknown as BasketProposal },
+      '26',
+    );
     // and a vault no plan is joined to
     const none = await vaultOf(c, { number: '23' });
     await deposit(c, '23', 100);
@@ -399,7 +414,10 @@ describe('GET /v1/leaderboard', () => {
       horizonOpen: true,
       incomeTargetUsdMonthly: 20,
     });
+    expect(rowAt(answer, fromLink)?.goal).toEqual(rowAt(answer, own)?.goal);
     expect(rowAt(answer, others)?.goal).toBeNull();
+    expect(rowAt(answer, nobodys)?.goal).toBeNull();
+    expect(rowAt(answer, unreadable)?.goal).toBeNull();
     expect(rowAt(answer, none)?.goal).toBeNull();
     expect(body).not.toContain(secret);
   });
