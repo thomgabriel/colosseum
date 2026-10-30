@@ -17,7 +17,7 @@ import { Refusal, refusing } from '../../orders/errors';
 import { familyByNameKey, familyBySlug } from '../../orders/families';
 import type { OrderDeps } from '../../orders/legs';
 import { chainsHeld, homeChain, personChain } from '../../orders/person';
-import { planBuy, recipeOf } from '../../orders/prepare';
+import { cashRawOf, centsOf, planBuy, recipeOf } from '../../orders/prepare';
 import { isLinkedProposal, loadBuyablePlan, loadFamilies } from '../../orders/store';
 import { signedIn } from './orders';
 
@@ -108,14 +108,24 @@ export function registerFundingRoute(
 }
 
 /**
+ * How many holdings a top-up's gas is read for (gate FAUCET-TOP): a new vault and this many swaps,
+ * each opening its token account. A vault of more holdings needs more: once its plan is stored, the
+ * card's faucet names it, and the gas is read for that plan's own steps.
+ */
+export const TOP_UP_HOLDINGS = 8;
+
+/**
  * What the person's wallet holds and is missing for this buy (the query of GET /v1/funding), with the
  * chain's entry it was read on. The test faucet reads the same, so it sends what this says is missing
- * and nothing the request states.
+ * and nothing the request states. With `topUp` (the faucet's alone) and an amount that names no buy,
+ * the need is a deposit of that amount into a new vault on the person's current chain: what the
+ * faucet sends before anything is chosen (gate FAUCET-TOP).
  */
 export async function readFunding(
   deps: OrderDeps,
   principal: Principal,
   query: FundingQuery,
+  options: { topUp?: boolean } = {},
 ): Promise<{ entry: ChainEntry; read: FundingResponse }> {
   const { amountUsd, proposalId, family: slug, vault, vaultChain } = query;
   // A plan is bought on its own chain, and a vault is added to on its own; a shared portfolio on the
@@ -148,11 +158,21 @@ export async function readFunding(
       : principal.wallets.some((w) => w.family === family && w.kind === 'external');
   const wallet = walletOf(principal, family, outside, query.wallet);
 
+  const { adapter } = entry;
+  const assets = await refusing(() => adapter.listAssets());
+  const cash = assets.find((a) => a.cls === 'cash');
+  if (!cash) throw new Error(`${entry.chain} lists no cash token`);
+
   let need: FundingNeed = { cashRaw: '0', legs: 0, newVault: false, newAccounts: 0 };
-  if (
-    amountUsd !== undefined &&
-    (proposalId !== undefined || slug !== undefined || vault !== undefined)
-  )
+  const named = proposalId !== undefined || slug !== undefined || vault !== undefined;
+  if (amountUsd !== undefined && !named && options.topUp)
+    need = {
+      cashRaw: String(cashRawOf(centsOf(amountUsd), cash.decimals)),
+      legs: 1 + TOP_UP_HOLDINGS,
+      newVault: true,
+      newAccounts: 1 + TOP_UP_HOLDINGS,
+    };
+  else if (amountUsd !== undefined && named)
     // Planned by the function an order is planned with, so the steps counted are the order's.
     need = (
       await planBuy(
@@ -182,12 +202,7 @@ export async function readFunding(
       )
     ).need;
 
-  const { adapter } = entry;
-  const [held, assets] = await refusing(() =>
-    Promise.all([adapter.funding(wallet, need), adapter.listAssets()]),
-  );
-  const cash = assets.find((a) => a.cls === 'cash');
-  if (!cash) throw new Error(`${entry.chain} lists no cash token`);
+  const held = await refusing(() => adapter.funding(wallet, need));
   const stamp = {
     source: entry.source,
     fetchedAt: deps.now().toISOString(),

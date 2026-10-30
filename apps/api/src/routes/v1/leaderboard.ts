@@ -7,10 +7,11 @@ import { LEADERBOARD_RULE, leaderboardOf } from '../../portfolio/leaderboard';
 import { keeper } from '../../read-cache';
 
 // GET /v1/leaderboard: every open vault on a chain, ranked by what it made (portfolio/leaderboard.ts).
-// Anybody may ask, so an answer is kept for a minute, as GET /v1/stats keeps its own.
+// Anybody may ask, so an answer is kept a short while: 15 seconds, so a vault read the moment its order
+// is done (orders/after-done.ts) shows on the board within a quarter of a minute.
 
 /** How long an answer is kept, in milliseconds. */
-export const LEADERBOARD_KEPT_MS = 60_000;
+export const LEADERBOARD_KEPT_MS = 15_000;
 
 export function registerLeaderboardRoute(
   scope: FastifyInstance,
@@ -27,7 +28,7 @@ export function registerLeaderboardRoute(
         tags: ['platform'],
         summary: 'Every open vault on a chain, ranked by what it made',
         description:
-          'Every vault the server knows on the chain (named by its vault cache, or read by the snapshot worker in the last 7 days) and that is open: a closed vault is left out, and a vault opened again counts from then. Read from the database alone. Each row has the vault’s address, the wallet that owns it in short form (nothing else about who owns it: not the name its owner gave it, nor its number among their vaults, which only the owner is answered), what it holds at its newest snapshot with each share of its value, its value then, and the shared portfolio it follows where the server names it. `pnl` is its value less what went in: the cash of each confirmed deposit made in this app, less each confirmed withdrawal at its value when it was ordered; `pct` is that over the deposits, a fraction, whatever was taken out since. A vault with no deposit the server holds (made outside this app) has no `pnl`, says so in `noPnl` and is ranked last. Every figure carries `source`, `fetchedAt`, `method` and `provenance` (`sandbox` on a test network). Where the server runs an event window (`LEADERBOARD_SINCE`), `since` is its start and only vaults whose first confirmed deposit made in this app is at or after it are listed, so a vault with none is left out; otherwise `since` is null. An answer is kept for 60 seconds.',
+          'Every vault the server knows on the chain (named by its vault cache, or read by the snapshot worker in the last 7 days) and that is open: a closed vault is left out, and a vault opened again counts from then. Read from the database alone. Each row has the vault’s address, the wallet that owns it in short form (nothing else about who owns it: not the name its owner gave it, nor its number among their vaults, which only the owner is answered), what it holds at its newest snapshot with each share of its value, its value then, the shared portfolio it follows where the server names it, and `goal`, the goal it was opened for: only the five structured fields of its plan (`goal`, `amountUsd`, `horizonMonths`, `horizonOpen`, `incomeTargetUsdMonthly`), where the plan is its owner’s own or made from a link, else null; never the name its owner typed, its number, or any text of the plan. `pnl` is its value less what went in: the cash of each confirmed deposit made in this app, less each confirmed withdrawal at its value when it was ordered; `pct` is that over the deposits, a fraction, whatever was taken out since. A vault with no deposit the server holds (made outside this app) has no `pnl`, says so in `noPnl` and is ranked last. Every figure carries `source`, `fetchedAt`, `method` and `provenance` (`sandbox` on a test network). Where the server runs an event window (`LEADERBOARD_SINCE`), `since` is its start and only vaults whose first confirmed deposit made in this app is at or after it are listed, so a vault with none is left out; otherwise `since` is null. An answer is kept for 15 seconds.',
         querystring: LeaderboardQuery,
         response: { 200: LeaderboardResponse, default: OrderError },
       },

@@ -21,6 +21,7 @@ import { MAX_USD, MIN_USD } from '../order/limits';
 import { displayName } from '../order/plain';
 import { rememberPlan } from '../order/plan-store';
 import { onMock } from '../order/readiness';
+import { TestFundsTop } from '../order/TestFundsTop';
 import { unitsFor } from '../order/units';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { DepositFacts, DepositSummary } from './DepositFacts';
@@ -190,7 +191,14 @@ export function DepositStep({
   const units = unitsFor(chain, mock);
   // The wallet's dollars on this chain, read once: what Max types and what the field says is there.
   const owner = port.active(chainFamily(chain))?.address ?? null;
-  const wallet = useWalletBalance(owner ? 'wallet' : null, owner, chain, mock);
+  // Read again once test funds were asked for at the top of the card (gate FAUCET-TOP).
+  const [funded, setFunded] = useState(0);
+  const wallet = useWalletBalance(owner ? 'wallet' : null, owner, chain, mock, funded);
+  // The last read, kept while the wallet is read again, so the faucet and what it said stay put.
+  const [lastRead, setLastRead] = useState<Extract<typeof wallet, { kind: 'read' }> | null>(null);
+  if (wallet.kind === 'read' && lastRead !== wallet) setLastRead(wallet);
+  // The faucet at the top: a test network where our server sends test funds, before the press.
+  const faucet = lastRead !== null && lastRead.provenance === 'sandbox' && lastRead.testFunds;
   const cash = units?.cash ?? null;
   const start = allocations
     .filter((line) => line.assetId !== cash)
@@ -398,6 +406,16 @@ export function DepositStep({
       >
         <CardHeader id={titleId} title={d.title} level={2} meta={t.chain.names[chain]} />
         <CardBody className="flex min-w-0 flex-col gap-5">
+          {!pressed && faucet && owner && (
+            <TestFundsTop
+              chain={chain}
+              mock={mock}
+              owner={owner}
+              haveUsd={lastRead?.cash.amount ?? null}
+              plan={plan ? { proposalId: plan.planId, amountUsd: plan.amountUsd } : null}
+              onSent={() => setFunded((n) => n + 1)}
+            />
+          )}
           {!pressed && (
             <>
               <div className="flex min-w-0 flex-col gap-2">
@@ -408,7 +426,6 @@ export function DepositStep({
                   onBlur={() => setSettled(true)}
                   text={amountText}
                   onText={onAmountText}
-                  hint={d.limits}
                   token={
                     cash && units?.tokens[cash]
                       ? {
@@ -579,6 +596,9 @@ export function DepositStep({
                 amountUsd={plan.amountUsd}
                 waiting={waiting}
                 host={hostOf(plan)}
+                // the button at the top goes with the press: after it, the funds step has its own
+                faucetAbove={faucet && !pressed}
+                readAgain={funded}
                 onLeave={onClose}
                 foot={pressed ? null : foot}
                 onQuoting={(now: boolean) =>

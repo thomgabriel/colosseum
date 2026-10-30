@@ -2632,6 +2632,13 @@ export type GetLeaderboardResponse = {
       name: string;
       slug: string;
     } | null;
+    goal: {
+      goal: 'grow' | 'income' | 'protect';
+      amountUsd: number;
+      horizonMonths: number;
+      horizonOpen?: boolean;
+      incomeTargetUsdMonthly?: number;
+    } | null;
   }[];
   disclaimer: string;
 };

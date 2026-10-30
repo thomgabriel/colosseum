@@ -1069,6 +1069,18 @@ export const pt: Dictionary = {
       and: (a: string, b: string) => `${a} e ${b}`,
       details: 'Mostrar os detalhes',
       testFunds: 'Receber fundos de teste',
+      testFundsUpTo: (amount: string) => `Receber ${amount} em fundos de teste`,
+      testTop:
+        'Esta é uma rede de teste. Receba dólares de teste e um pouco de gás para experimentar um depósito.',
+      testAbove: 'Os fundos de teste vêm do botão no topo deste cartão.',
+      testAboveGo: 'Ir para os fundos de teste',
+      testFailureTop: {
+        tooMuch:
+          'Isso é mais do que um envio de fundos de teste dá. Tente mais tarde, ou coloque fundos na carteira você mesmo.',
+        refused: 'Nosso servidor não enviou fundos de teste. Tente de novo em instantes.',
+        unreachable:
+          'A rede de teste não aceitou a transferência, ou nosso servidor não respondeu. Veja seu saldo abaixo: parte pode ter chegado.',
+      },
       testFunding: 'Enviando fundos de teste…',
       testNote: 'Tokens de teste não têm valor. Eles existem só na rede de teste.',
       testSent: (list: string) => `Enviei ${list} para sua carteira na rede de teste.`,
@@ -2572,7 +2584,6 @@ export const pt: Dictionary = {
         tier: (n: number) =>
           n === 1 ? '1 pela faixa, não medido' : `${n} pela faixa, não medidos`,
       },
-      limits: 'De US$ 1 a US$ 1.000.000.',
       mix: 'O que seu cofre vai guardar',
       edited: 'Editada à mão',
       share: 'Parte',

@@ -67,7 +67,7 @@ A decision that changes something a document says is not finished until the docu
 ## Layout
 
 - `apps/api` Fastify + zod → OpenAPI (`/docs`). `apps/risk-api` the `/risk/*` routes on their own. `apps/web` Next.js.
-- `apps/snapshot` the worker that reads every vault we know (every ten minutes standalone, once an hour at minute 15 inside the hosted API, gate `SNAPSHOT-IN-API`; a snapshot is stale after two hours) and keeps what it read (`vault_snapshots`, gate `SNAPSHOT-WORKER`). It holds no key and reads the test networks only until a person says otherwise.
+- `apps/snapshot` the worker that reads every vault we know (every ten minutes standalone, once an hour at minute 15 inside the hosted API, and there once more for a vault as soon as an order on it is done, gate `SNAPSHOT-IN-API`; a snapshot is stale after two hours) and keeps what it read (`vault_snapshots`, gate `SNAPSHOT-WORKER`). It holds no key and only reads: the test networks and, under gate `SNAPSHOT-WORKER-MAINNET` (Thom, Oct 13), Robinhood Chain mainnet, whose rows are `live`; Solana and Base stay on their test networks until a person says otherwise.
 - `packages/schemas` zod types shared everywhere, plus the `DISCLAIMER` constant. It imports nothing.
 - `packages/engine` parser, asset registry, solver, schedule, risk sheet, policy. `packages/risk` pool decoders, exit-cost curves, the liquidity provider; it never imports `engine`.
 - Who may import whom is the layout table in `docs/vault/DESIGN-VAULT.md` section 2, and `tests/boundaries.test.ts` fails on anything else. A new folder under `packages/` or `apps/` needs a row in both.
