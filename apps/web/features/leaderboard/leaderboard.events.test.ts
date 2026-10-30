@@ -37,6 +37,7 @@ const row = (
   pnl: null,
   noPnl: 'no_deposit_record',
   follows: null,
+  goal: null,
   ...over,
 });
 
@@ -118,14 +119,15 @@ describe('the leaderboard page', () => {
     ]);
 
     const [first, second, third] = rows as [Element, Element, Element];
-    // a vault is called by its address in short: its owner's name for it and number are theirs alone
+    // with no goal the server answers, a vault is called by the shared portfolio it follows, else by
+    // its address in short: its owner's name for it and number are theirs alone
     expect(find(first, '[data-ui="leaderboard-vault"]').textContent).toBe(w.unnamed('9xQe…VFin'));
+    expect(first.querySelector('[data-ui="leaderboard-address"]')).toBeNull();
+    expect(find(second, '[data-ui="leaderboard-vault"]').textContent).toBe(w.follows('The Seven'));
+    expect(find(second, '[data-ui="leaderboard-address"]').textContent).toBe('7dHb…7ARj');
     expect(find(third, '[data-ui="leaderboard-vault"]').textContent).toBe(w.unnamed('4k3D…kX6R'));
     // the row opens the vault's own page, which anybody may read
     expect(find(first, 'a').getAttribute('href')).toBe(`/portfolio/vaults/solana/${A}`);
-    expect(find(second, '[data-ui="leaderboard-follows"]').textContent).toBe(
-      w.follows('The Seven'),
-    );
     expect(find(first, '[data-ui="leaderboard-owner"]').textContent).toBe('9xQe…VFin');
 
     // the three largest holdings with their shares, and how many more
@@ -150,6 +152,49 @@ describe('the leaderboard page', () => {
     expect(find(host, '[data-ui="sample-tag"]').textContent).toBe(en.shell.testNetworkLine);
     expect(host.textContent).not.toContain('MOCK');
     expect(find(host, '[data-ui="leaderboard-count"]').textContent).toContain('3');
+  });
+
+  it('names a vault by the goal it was opened for, with its address in short under it', async () => {
+    const goal = { goal: 'grow' as const, amountUsd: 5000, horizonMonths: 60, horizonOpen: true };
+    const { host } = await page(() =>
+      json({
+        ...ANSWER,
+        vaults: [
+          // deposits the same as the goal's amount: the goal as it was set
+          row({
+            rank: 1,
+            address: A,
+            goal,
+            pnl: { ...pnl('-7.51', -0.0015), depositsUsd: '5000.00' },
+          }),
+          // more deposited than the goal said: the goal at what went in
+          row({
+            rank: 2,
+            address: B,
+            goal,
+            pnl: { ...pnl('1.00', 0.0001), depositsUsd: '8000.00' },
+          }),
+          // a goal with its date, and no deposit figure: the goal as it was set
+          row({
+            rank: 3,
+            address: C,
+            goal: { goal: 'protect', amountUsd: 1200, horizonMonths: 12 },
+          }),
+        ],
+      }),
+    );
+    const rows = [...host.querySelectorAll('[data-ui="leaderboard-row"]')];
+    const said = rows.map((r) => find(r, '[data-ui="leaderboard-vault"]').textContent);
+    expect(said).toEqual([
+      en.goal.card.sentenceOpen.grow('$5,000'),
+      en.goal.card.sentenceOpen.grow('$8,000'),
+      en.goal.card.sentence.protect('$1,200', en.goal.card.months(12)),
+    ]);
+    expect(find(rows[0] as Element, '[data-ui="leaderboard-address"]').textContent).toBe(
+      '9xQe…VFin',
+    );
+    // still opens the vault's page, named for what it says
+    expect(find(rows[0] as Element, 'a').getAttribute('aria-label')).toBe(w.open(said[0] ?? ''));
   });
 
   it('says when each vault was last read as time ago, with the instant on hover', async () => {
