@@ -61,6 +61,8 @@ SNAPSHOT_AT_MINUTE=15        # optional; a pass at this minute of each UTC hour,
 
 Hosted, it runs `SNAPSHOT_INTERVAL_S=3600` and `SNAPSHOT_AT_MINUTE=15`.
 
+Beside the passes, the API reads one vault at once when it stores an order on that vault as done (amended Oct 30, Thom): `snapshotVault` of `src/pass.ts` on the loop's own sources, the same row a pass writes and no run, about 2 s after the order is done (`apps/api/src/orders/after-done.ts`). A read that fails is logged and the vault waits for the next pass.
+
 - It is this worker's own start (`start` of `src/main.ts`), called from `apps/api/src/snapshot-in-api.ts`: the same chain flags, mainnet refusals, node checks, passes, back-off and run rows. The database is the API's one pool (`sharedDb` of `packages/db`), which the loop never ends, and the chain rows are held as the worker holds them.
 - The nodes are the API's own: the worker and the API both read `SOLANA_RPC_URL` and `ROBINHOOD_RPC_URL`, so the hosted API needs no new secret. `SNAPSHOT_CHAINS` and `SNAPSHOT_PING_URL` work as they do for the worker.
 - Once an hour, at a fixed minute: each pass wakes the hosted database (Neon's free compute sleeps after five minutes without a query, and its compute hours are the limit that binds), so the passes run at a minute when the hourly market-data import already has it awake (about :10 to :25 UTC). With `SNAPSHOT_AT_MINUTE` set the interval must be the hour; any other is refused at start with `SNAPSHOT_AT_MINUTE: needs SNAPSHOT_INTERVAL_S=3600, one pass an hour`. Without it the passes run on a grid of the interval from the first pass, half an hour by default. Either way every chain wakes on one schedule, so their passes reach the database together and wake it once.
