@@ -1031,6 +1031,8 @@ describe('no /v1 route can make the server sign', () => {
       'llm.ts',
       'model-exits.ts',
       'model-quota.ts',
+      // a done order's vault, read through the snapshot worker's reader handed in: no key, no signer
+      'orders/after-done.ts',
       'orders/chains.ts',
       'orders/continue.ts',
       'orders/errors.ts',
