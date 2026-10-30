@@ -180,6 +180,48 @@ describe('the settings', () => {
   });
 });
 
+describe('a read of one vault', () => {
+  it('reads nothing before the start set the chains up, nor on a chain or label it does not read, and reads one vault on its own source after', async () => {
+    const solana = chain('solana');
+    const asked: string[] = [];
+    const source: ChainSource = {
+      ...solana.source,
+      getVault: async (address) => {
+        asked.push(address);
+        return null;
+      },
+    };
+    const { handle } = start(ON, { sources: async () => [source] });
+    if (!handle) throw new Error('the loop did not start');
+    expect(await handle.readVault('solana', 'sandbox', 'Vault1')).toBeNull();
+    await vi.advanceTimersByTimeAsync(FIRST_PASS_DELAY_MS + 1_000);
+    expect(await handle.readVault('robinhood', 'sandbox', 'Vault1')).toBeNull();
+    expect(await handle.readVault('solana', 'live', 'Vault1')).toBeNull();
+    expect(asked).toEqual([]);
+    expect(await handle.readVault('solana', 'sandbox', 'Vault1')).toEqual({ outcome: 'none' });
+    expect(asked).toEqual(['Vault1']);
+    handle.stop();
+  });
+
+  it('throws a read that fails with a reason that names no node', async () => {
+    const NODE = 'https://node.example/key-in-the-path';
+    const solana = chain('solana');
+    const source: ChainSource = {
+      ...solana.source,
+      getVault: async () => {
+        throw new ChainError('Unavailable', `request to ${NODE} failed`);
+      },
+    };
+    const { handle } = start({ ...ON, SOLANA_RPC_URL: NODE }, { sources: async () => [source] });
+    if (!handle) throw new Error('the loop did not start');
+    await vi.advanceTimersByTimeAsync(FIRST_PASS_DELAY_MS + 1_000);
+    await expect(handle.readVault('solana', 'sandbox', 'Vault1')).rejects.toThrow(
+      'Unavailable: request to <SOLANA_RPC_URL> failed',
+    );
+    handle.stop();
+  });
+});
+
 describe('the loop', () => {
   it('does not start without the flag: no source asked, no pass, nothing logged', async () => {
     const sources = vi.fn(async () => [chain('solana').source]);

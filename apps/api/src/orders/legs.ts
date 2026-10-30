@@ -63,6 +63,11 @@ export type OrderDeps = {
    * handed the kind of failure and never the error itself, which can carry what was being written.
    */
   onRecordError?: (what: { name: string; code?: string }) => void;
+  /**
+   * Told once the server learns an order is done, as its status is stored. It must return at once and
+   * never throw: the order's answer does not wait for it (after-done.ts reads the order's vault).
+   */
+  onOrderDone?: (stored: StoredOrder) => void;
 };
 
 /** What a failure is called, with nothing of what it was about. */
@@ -110,6 +115,13 @@ async function reload(deps: OrderDeps, id: string, expiresAt?: number): Promise<
   const now = { ...stored, order: { ...stored.order, status, expiresAt: until } };
   // The plan's thread is told when the order's status moved: done, failed, expired.
   if (status !== stored.order.status) await tellThread(deps, now);
+  if (status === 'done' && stored.order.status !== 'done') {
+    try {
+      deps.onOrderDone?.(now);
+    } catch {
+      // Never the order's failure: the vault is read at the next pass.
+    }
+  }
   return now;
 }
 

@@ -2,6 +2,7 @@ import { BasketInputError, view } from '@colosseum/basket';
 import type { Db } from '@colosseum/db';
 import {
   type AssetId,
+  type BasketAsset,
   ChainError,
   type Price,
   type Provenance,
@@ -10,7 +11,7 @@ import {
 import { DrizzleQueryError } from 'drizzle-orm';
 import { type ChainState, ownersDue, startDiscovery } from './discover';
 import type { RoundFailure } from './loop';
-import type { ChainSource } from './source';
+import type { ChainRules, ChainSource } from './source';
 import {
   closeRun,
   closeStaleRuns,
@@ -19,6 +20,7 @@ import {
   openRun,
   ownersOf,
   type RunEnd,
+  type SnapshotRow,
   snapshotRow,
   snapshottedAddresses,
 } from './store';
@@ -220,6 +222,43 @@ async function openOwnRun(
 }
 
 /**
+ * One vault's row from what a read gave: valued by view() on the chain's prices of what it holds.
+ * Throws when the price of something it holds could not be read: a price the chain did not answer for
+ * is not a price of nothing, and a row written without it would say the vault is worth less than it is.
+ */
+function rowOf(
+  source: ChainSource,
+  v: VaultState,
+  read: {
+    prices: Price[];
+    unread: Map<AssetId, unknown>;
+    listed: BasketAsset[];
+    rules: ChainRules;
+    height: bigint | null;
+    basketId: string | null;
+  },
+): { row: SnapshotRow; priced: number; positions: number } {
+  const held = new Set<string>(holdings(v));
+  const lost = [...held].find((id) => read.unread.has(id as AssetId));
+  if (lost !== undefined)
+    throw new Error(
+      `the price of ${lost} could not be read (${reasonOf(read.unread.get(lost as AssetId))}), so the vault was not valued`,
+    );
+  const mine = read.prices.filter((p) => held.has(p.asset));
+  const seen = view(v, mine, read.listed);
+  const row = snapshotRow({
+    source,
+    seen,
+    prices: mine,
+    rules: read.rules,
+    height: read.height,
+    basketId: read.basketId,
+  });
+  const priced = seen.positions.filter((p) => p.valueUsd !== null).length;
+  return { row, priced, positions: seen.positions.length };
+}
+
+/**
  * The reads and the writes of a pass. Throws when the chain did not answer. `counts` is kept up as it
  * goes, so a pass that fails half way still says what it had read.
  */
@@ -312,31 +351,20 @@ async function readChain(
   const blockOrSlot = height === null ? null : height.toString();
   for (const v of found.values()) {
     try {
-      const held = new Set<string>(holdings(v));
-      // A price the chain did not answer for is not a price of nothing: a row written without it
-      // would say the vault is worth less than it is.
-      const lost = [...held].find((id) => unread.has(id));
-      if (lost !== undefined)
-        throw new Error(
-          `the price of ${lost} could not be read (${reasonOf(unread.get(lost))}), so the vault was not valued`,
-        );
-      const mine = prices.filter((p) => held.has(p.asset));
-      const seen = view(v, mine, listed);
-      const row = snapshotRow({
-        source,
-        seen,
-        prices: mine,
+      const { row, priced, positions } = rowOf(source, v, {
+        prices,
+        unread,
+        listed,
         rules,
         height,
         basketId: basketOf.get(v.address) ?? null,
       });
       if (!ctx.dryRun) await insertSnapshot(db, row);
       counts.read++;
-      const priced = seen.positions.filter((p) => p.valueUsd !== null).length;
       say({
         vault: v.address,
         outcome: 'read',
-        reason: `${priced} of ${seen.positions.length} positions priced`,
+        reason: `${priced} of ${positions} positions priced`,
         observedAt: v.observedAt,
         valueUsd: row.valueUsd,
         blockOrSlot,
@@ -404,4 +432,43 @@ export async function snapshotChain(
   if (failure !== null) throw new Error(failure);
   say({ pass: 'done', ...counts, dryRun: ctx.dryRun });
   return { outcome: 'done', ...counts };
+}
+
+/** What a read of one vault outside a pass came to: its row was written, or there is no vault there. */
+export type VaultRead = { outcome: 'read'; valueUsd: string } | { outcome: 'none' };
+
+/**
+ * One vault read now, outside the passes, and kept as its row: the read the API asks for once an order
+ * on the vault is done (gate SNAPSHOT-IN-API, amended Oct 30), so its value shows at once rather than at
+ * the next pass. The same reads and the same row as a pass gives the vault, and no run: a run is a
+ * pass's. Throws when the chain did not answer or a price of what the vault holds could not be read.
+ */
+export async function snapshotVault(
+  db: Db,
+  source: ChainSource,
+  address: string,
+): Promise<VaultRead> {
+  const height = await source.height();
+  const v = await source.getVault(address);
+  if (v === null) return { outcome: 'none' };
+  const [rules, listed, known] = await Promise.all([
+    source.rules(),
+    source.listAssets(),
+    knownVaults(db, source.chain, source.provenance),
+  ]);
+  const onList = new Set<string>(listed.map((a) => a.id));
+  const { prices, unread } = await pricesOf(
+    source,
+    holdings(v).filter((id) => onList.has(id)),
+  );
+  const { row } = rowOf(source, v, {
+    prices,
+    unread,
+    listed,
+    rules,
+    height,
+    basketId: known.find((k) => k.address === v.address)?.basketId ?? null,
+  });
+  await insertSnapshot(db, row);
+  return { outcome: 'read', valueUsd: row.valueUsd };
 }

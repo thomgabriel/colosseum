@@ -1,10 +1,12 @@
 import { type Db, sharedDb } from '@colosseum/db';
-import { type EnvLike, readEnv } from '@colosseum/schemas';
+import { type ChainId, type EnvLike, type Provenance, readEnv } from '@colosseum/schemas';
 import { MIN_INTERVAL_S } from '../../snapshot/src/args';
 import { sourcesFromEnv } from '../../snapshot/src/chains';
 import { hiderFromEnv } from '../../snapshot/src/hide';
 import { lastWords, type StartDeps, start } from '../../snapshot/src/main';
+import { said, snapshotVault, type VaultRead } from '../../snapshot/src/pass';
 import { runSnapshots } from '../../snapshot/src/run';
+import type { ChainSource } from '../../snapshot/src/source';
 
 // The snapshot worker's loop inside the API process (apps/snapshot/README.md, "Inside the API"), so the
 // hosted API keeps `vault_snapshots` fresh with no machine of its own. Off unless SNAPSHOT_IN_API=1.
@@ -88,7 +90,16 @@ export type SnapshotInApiDeps = {
   firstPassDelayMs?: number;
 };
 
-export type SnapshotInApi = { stop(): void };
+export type SnapshotInApi = {
+  stop(): void;
+  /**
+   * Reads one vault now and keeps its row (apps/snapshot's `snapshotVault`), on a chain the loop reads
+   * and under the label it reads it with. Null when the loop has no source for that chain and label
+   * yet (not started, refused, or a chain it does not read): nothing is read. Throws as the read does,
+   * with a reason that names no node.
+   */
+  readVault(chain: ChainId, provenance: Provenance, address: string): Promise<VaultRead | null>;
+};
 
 /** Said by a stopped loop's sleep, so the worker's loop ends and nothing logs it as a failure. */
 class Stopped extends Error {}
@@ -128,6 +139,9 @@ export function startSnapshotInApi(env: EnvLike, deps: SnapshotInApiDeps): Snaps
   const sleeping = new Set<(e: Error) => void>();
   let keepAwake: ReturnType<typeof setInterval> | null = null;
   let stopped = false;
+  // The chains the worker's start set up, kept for the reads of one vault: the same sources, so the
+  // same chains, labels, nodes and refusals.
+  let sources: ChainSource[] = [];
 
   const later = (ms: number, then: () => void) => {
     const timer = setTimeout(() => {
@@ -184,9 +198,10 @@ export function startSnapshotInApi(env: EnvLike, deps: SnapshotInApiDeps): Snaps
     try {
       await start(['--loop', '--interval', String(settings.intervalS)], env, {
         sources: async (...args) => {
-          const sources = await (deps.sources ?? sourcesFromEnv)(...args);
+          const made = await (deps.sources ?? sourcesFromEnv)(...args);
           configured = true;
-          return sources;
+          sources = made;
+          return made;
         },
         // The API's pool, which outlives the loop: nothing here may end it.
         open: () => ({ db: (deps.db ?? (() => sharedDb().db))(), client: { end: async () => {} } }),
@@ -232,6 +247,17 @@ export function startSnapshotInApi(env: EnvLike, deps: SnapshotInApiDeps): Snaps
     keepAwake = null;
   }
 
+  async function readVault(chain: ChainId, provenance: Provenance, address: string) {
+    const source = sources.find((s) => s.chain === chain && s.provenance === provenance);
+    if (!source) return null;
+    try {
+      return await snapshotVault((deps.db ?? (() => sharedDb().db))(), source, address);
+    } catch (e) {
+      // Said as a pass says it: no node's address, the first line only.
+      throw new Error(said({ hide }, e));
+    }
+  }
+
   later(deps.firstPassDelayMs ?? FIRST_PASS_DELAY_MS, () => void attempt());
-  return { stop };
+  return { stop, readVault };
 }

@@ -33,6 +33,7 @@ import {
 } from '../../faucet/test-funds';
 import { type IntakeModel, intakeModelFromEnv, intakeSettings } from '../../llm';
 import { createModelQuota } from '../../model-quota';
+import { type ReadVault, readOnDone } from '../../orders/after-done';
 import {
   type ChainRegistry,
   createChainRegistry,
@@ -171,6 +172,17 @@ const shelfWarmups = new WeakMap<FastifyInstance, Promise<void>>();
 export const shelfWarmed = (app: FastifyInstance): Promise<void> =>
   shelfWarmups.get(app) ?? Promise.resolve();
 
+const doneReaders = new WeakMap<FastifyInstance, { read: ReadVault | null }>();
+/**
+ * Has the app read the vault of each order it learns is done, with `read`: the snapshot worker's reader
+ * (orders/after-done.ts, gate SNAPSHOT-IN-API). Set after the app is built, since the worker starts after
+ * the listen; until then, and on a server with no worker, no vault is read.
+ */
+export const readVaultsWhenDone = (app: FastifyInstance, read: ReadVault): void => {
+  const slot = doneReaders.get(app);
+  if (slot) slot.read = read;
+};
+
 /** Every /v1 route. The app hands in its environment once; nothing under here reads process.env. */
 export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps: V1Deps = {}) {
   // First, so a flag or a chain config that cannot be read stops the app with its own message.
@@ -224,12 +236,16 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
   app.addHook('onReady', async () => {
     void noteLifetimes(asked);
   });
+  const doneReader: { read: ReadVault | null } = { read: null };
+  doneReaders.set(app, doneReader);
   const orderDeps: OrderDeps = {
     db,
     chains,
     now: deps.now ?? (() => new Date()),
     // The kind of failure only: what was being written is a person's own words, and is not logged.
     onRecordError: (what) => app.log.error(what, 'a plan’s thread could not be written'),
+    // The vault of each done order, read once with the snapshot worker's reader where it runs.
+    onOrderDone: readOnDone({ db, chains }, () => doneReader.read, app.log),
   };
   // The shelf, worked out once in the background as the server starts: the page most visitors open
   // first. The server answers meanwhile; a shelf asked for before it ends shares its reads.

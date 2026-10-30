@@ -4,7 +4,7 @@ import { parseChainConfigs } from '@colosseum/schemas';
 import { buildApp } from './app';
 import { startRiskWarm } from './risk-warm';
 import { warmRiskReads } from './routes/risk-dex';
-import { shelfWarmed } from './routes/v1';
+import { readVaultsWhenDone, shelfWarmed } from './routes/v1';
 import { startSnapshotInApi } from './snapshot-in-api';
 
 // The vault tables point at `chains`. Write its rows before serving, and stop if this database was
@@ -27,4 +27,7 @@ const warmingUp = warmRiskReads(app, {
 // never beside the warm-up above.
 startRiskWarm(app, process.env, { log: app.log, after: warmingUp });
 // The snapshot worker's passes in this process, behind SNAPSHOT_IN_API=1; never ends the API.
-startSnapshotInApi(process.env, { log: app.log });
+const snapshots = startSnapshotInApi(process.env, { log: app.log });
+// And the vault of each done order read at once with the worker's reader, so its value shows without
+// waiting for the next pass (gate SNAPSHOT-IN-API, amended Oct 30).
+if (snapshots) readVaultsWhenDone(app, snapshots.readVault);
