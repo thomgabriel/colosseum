@@ -49,5 +49,10 @@ test('a new person gets test funds from the top of the deposit card, before typi
   const card = step.locator('[data-ui="invest-card"]');
   await expect(card.locator('[data-ui="funding-step"]')).toBeVisible({ timeout: 30_000 });
   await expect(card.getByRole('button', { name: en.buy.funding.testFunds })).toHaveCount(0);
+  // what one send covers, and the way back up to the faucet, which now names the plan
+  await expect(card.locator('[data-ui="test-funds-cap"]')).toBeVisible();
+  await card.locator('[data-action="to-test-funds"]').click();
+  await expect(top.locator('[data-action="test-funds-top"]')).toBeFocused();
+  await expect(top.getByRole('button', { name: en.buy.funding.testFunds })).toBeVisible();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/faucet-top-short.png`, fullPage: true });
 });

@@ -111,6 +111,9 @@ describe('POST /v1/testnet/fund', () => {
     expect(FundingResponse.parse(read.json()).testFunds).toBeUndefined();
     const res = await post(a, '/v1/testnet/fund', ask(), mockApp);
     expect(res.statusCode).toBe(403);
+    // a top-up, which names no buy, the same (FAUCET-TOP)
+    const topUp = await post(a, '/v1/testnet/fund', { amountUsd: 9_900 }, mockApp);
+    expect(topUp.statusCode).toBe(403);
     expect(sent).toHaveLength(0);
   });
 
@@ -148,6 +151,19 @@ describe('POST /v1/testnet/fund', () => {
     expect(sent.at(-1)?.gasRaw).toBeGreaterThan(0n);
     // A funding read still names a buy with its amount, or neither: the top-up is the faucet's alone.
     expect((await get(a, '/v1/funding?amountUsd=9900')).statusCode).toBe(400);
+  });
+
+  it('names a plan: the gas is read for that plan’s own steps, not a top-up’s (FAUCET-TOP)', async () => {
+    const a = await someone();
+    const read = FundingResponse.parse(
+      (await get(a, `/v1/funding?amountUsd=200&proposalId=${plans.solana}`)).json(),
+    );
+    await post(a, '/v1/testnet/fund', { amountUsd: 200 });
+    const topUpGas = sent.at(-1)?.gasRaw;
+    await post(a, '/v1/testnet/fund', ask());
+    const gas = BigInt(read.gas.missingRaw);
+    expect(sent.at(-1)?.gasRaw).toBe(gas + (gas * 2_500n + 9_999n) / 10_000n);
+    expect(sent.at(-1)?.gasRaw).not.toBe(topUpGas);
   });
 
   it('refuses a wallet that is not the person’s, and a body that names an amount to send', async () => {

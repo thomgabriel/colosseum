@@ -109,8 +109,8 @@ export function registerFundingRoute(
 
 /**
  * How many holdings a top-up's gas is read for (gate FAUCET-TOP): a new vault and this many swaps,
- * each opening its token account. Enough for the drafts a conversation makes; a deposit that needs
- * more gas asks the faucet again with what it names.
+ * each opening its token account. A vault of more holdings needs more: once its plan is stored, the
+ * card's faucet names it, and the gas is read for that plan's own steps.
  */
 export const TOP_UP_HOLDINGS = 8;
 

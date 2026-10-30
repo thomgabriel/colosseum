@@ -6,6 +6,7 @@ import { click, find, mount, settle, unmountAll } from '../../components/ui/test
 import { dictionary } from '../../i18n';
 import { withAccount } from '../account/test/screen';
 import { FundingStep } from '../order/FundingStep';
+import { TestFundsTop } from '../order/TestFundsTop';
 import { unitsFor } from '../order/units';
 import { EMBEDDED, json, SOLANA, signedInPort } from '../wallet/test/fake-port';
 import { portStore } from '../wallet/test/mock-provider';
@@ -188,6 +189,69 @@ describe('the faucet at the top of the deposit card (FAUCET-TOP)', () => {
   });
 });
 
+describe('a stored plan, named by the faucet at the top (FAUCET-TOP)', () => {
+  const PLAN = '6f1c1a52-6a55-4f0b-9a57-3f1f8f0f3a10';
+  const Stored = () =>
+    createElement(TestFundsTop, {
+      chain: 'solana',
+      mock: false,
+      owner: SOLANA,
+      haveUsd: 9_999,
+      plan: { proposalId: PLAN, amountUsd: 5_000 },
+      onSent: () => {},
+    });
+  const answer = {
+    chain: 'solana',
+    provenance: 'sandbox',
+    wallet: SOLANA,
+    cash: { symbol: 'USDC', decimals: 6, raw: '0' },
+    gas: { symbol: 'SOL', decimals: 9, raw: '13625000' },
+    txIds: ['devnet-signature'],
+    left: 1,
+  };
+
+  it('asks for what that deposit is missing, so a vault of 16 holdings gets its gas', async () => {
+    const bodies: unknown[] = [];
+    portStore.setApi(async (path, init) => {
+      if (path !== '/v1/testnet/fund') return json({ error: 'not here' }, 404);
+      bodies.push(JSON.parse(String(init?.body)));
+      return json(answer);
+    });
+    const host = await mount(withAccount('en', createElement(Stored)));
+    const button = find(host, '[data-action="test-funds-top"]');
+    // it promises no amount when it names a plan: it sends what the deposit is missing
+    expect(button.textContent).toContain(en.buy.funding.testFunds);
+    await click(button);
+    await settle();
+    expect(bodies).toEqual([{ proposalId: PLAN, amountUsd: 5_000, wallet: SOLANA }]);
+  });
+
+  it('falls back to a top-up where the plan’s gas is over one send, from an empty wallet', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    portStore.setApi(async (path, init) => {
+      if (path !== '/v1/testnet/fund') return json({ error: 'not here' }, 404);
+      const body = JSON.parse(String(init?.body));
+      bodies.push(body);
+      return body.proposalId ? json({ error: 'too much' }, 422) : json(answer);
+    });
+    const host = await mount(withAccount('en', createElement(Stored)));
+    await click(find(host, '[data-action="test-funds-top"]'));
+    await settle();
+    expect(bodies.map((b) => b.proposalId ?? null)).toEqual([PLAN, null]);
+    expect(host.querySelector('[data-ui="test-funds-sent"]')).not.toBeNull();
+    expect(host.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('says its failures without an amount or a deposit that may not exist yet', async () => {
+    for (const words of [
+      en.buy.funding.testFailureTop.tooMuch,
+      en.buy.funding.testFailureTop.refused,
+    ]) {
+      expect(words).not.toMatch(/amount|deposit/i);
+    }
+  });
+});
+
 describe('the funds step under a card with the faucet at its top', () => {
   const short = {
     kind: 'read' as const,
@@ -212,6 +276,37 @@ describe('the funds step under a card with the faucet at its top', () => {
         }),
       ),
     );
+
+  it('points back to the faucet, focuses it, and still says what one send covers', async () => {
+    const hostCard = await mount(
+      withAccount(
+        'en',
+        createElement(
+          'div',
+          null,
+          createElement('button', { 'data-action': 'test-funds-top', type: 'button' }),
+          createElement(FundingStep, {
+            funding: short,
+            chainName: 'Solana',
+            owner: SOLANA,
+            mock: false,
+            units: unitsFor('solana', false),
+            gasUnits: null,
+            mockBusy: false,
+            onReadAgain: () => {},
+            onMock: () => {},
+            testFunds: { busy: false, outcome: null, onAsk: () => {} },
+            faucetAbove: true,
+            capped: { note: 'one send won’t cover this amount', label: 'unused' },
+          }),
+        ),
+      ),
+    );
+    expect(hostCard.textContent).toContain(en.buy.funding.testAbove);
+    expect(find(hostCard, '[data-ui="test-funds-cap"]').textContent).toContain('won’t cover');
+    await click(find(hostCard, '[data-action="to-test-funds"]'));
+    expect(document.activeElement).toBe(find(hostCard, '[data-action="test-funds-top"]'));
+  });
 
   it('has no test-funds button of its own there, and keeps it elsewhere', async () => {
     expect(faucetButtons(await step(true))).toHaveLength(0);

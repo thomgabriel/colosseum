@@ -15,15 +15,19 @@ import { unitsFor } from './units';
 // The faucet at the top of the deposit card, on a test network where our server sends test funds
 // (gate FAUCET-TOP, Thom, Oct 30): before any amount is typed, one press asks for up to one send of
 // test dollars and the gas a new vault needs, on the person's current chain (POST /v1/testnet/fund
-// with no buy named). What arrived, or why nothing did, is said under it in the words the funds step
-// uses. The card's host shows it only where the wallet's read says test funds are offered, and the
-// funds step further down then has no button of its own: one faucet on the screen.
+// with no buy named). Once a plan is stored the press names it, so the server sizes the gas for that
+// vault's own steps: a vault of many holdings needs more than a top-up leaves. Where that much gas is
+// over one send's ceiling, as for 16 holdings from an empty wallet, the press falls back to a top-up,
+// and the next one names the plan for the rest. What arrived, or why nothing did, is said under it.
+// The card's host shows it only where the wallet's read says test funds are offered, and the funds
+// step further down then has no button of its own: one faucet on the screen.
 
 export function TestFundsTop({
   chain,
   mock,
   owner,
   haveUsd,
+  plan,
   onSent,
 }: {
   chain: ChainId;
@@ -32,6 +36,8 @@ export function TestFundsTop({
   owner: string;
   /** The wallet's dollars as last read: each press asks for one send over them. Null: not read. */
   haveUsd: number | null;
+  /** The plan stored for what is on the card, and its amount. Null: no buy to name yet. */
+  plan: { proposalId: string; amountUsd: number } | null;
   /** A send was answered, whether or not it arrived: the host reads the wallet again. */
   onSent: () => void;
 }) {
@@ -42,16 +48,24 @@ export function TestFundsTop({
   const [outcome, setOutcome] = useState<TestFundsOutcome | null>(null);
   const units = unitsFor(chain, mock);
   const cashUnits = units ? (units.tokens[units.cash] ?? null) : null;
-  const { sent, failed } = useTestFundsWords(outcome, cashUnits, gasUnitsFor(chain));
+  const { sent, failed } = useTestFundsWords(outcome, cashUnits, gasUnitsFor(chain), true);
 
   async function ask() {
     setBusy(true);
     setOutcome(null);
-    const answer = await requestTestFunds(apiFetch, {
-      // one send over what the wallet holds, so a second press adds as much again
-      amountUsd: Math.min(Math.floor(haveUsd ?? 0) + TEST_SEND_COVERS, MAX_USD),
-      wallet: owner,
-    });
+    // one send over what the wallet holds, so a second press adds as much again
+    const oneSend = Math.min(Math.floor(haveUsd ?? 0) + TEST_SEND_COVERS, MAX_USD);
+    const topUp = () => requestTestFunds(apiFetch, { amountUsd: oneSend, wallet: owner });
+    let answer: TestFundsOutcome;
+    if (plan) {
+      // never over the plan's own amount, which is the most a deposit into it may be
+      answer = await requestTestFunds(apiFetch, {
+        proposalId: plan.proposalId,
+        amountUsd: Math.min(plan.amountUsd, oneSend),
+        wallet: owner,
+      });
+      if (answer.kind === 'too-much') answer = await topUp();
+    } else answer = await topUp();
     setBusy(false);
     setOutcome(answer);
     onSent();
@@ -70,7 +84,10 @@ export function TestFundsTop({
         busyLabel={t.buy.funding.testFunding}
         onClick={() => void ask()}
       >
-        {t.buy.funding.testFundsUpTo(dollars(TEST_SEND.maxUsd, lang))}
+        {/* with a plan named, it sends what that deposit is missing: no amount is promised */}
+        {plan
+          ? t.buy.funding.testFunds
+          : t.buy.funding.testFundsUpTo(dollars(TEST_SEND.maxUsd, lang))}
       </Button>
       <div aria-live="polite" className="flex flex-col gap-1">
         {sent && (

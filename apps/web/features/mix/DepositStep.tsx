@@ -412,6 +412,7 @@ export function DepositStep({
               mock={mock}
               owner={owner}
               haveUsd={lastRead?.cash.amount ?? null}
+              plan={plan ? { proposalId: plan.planId, amountUsd: plan.amountUsd } : null}
               onSent={() => setFunded((n) => n + 1)}
             />
           )}
