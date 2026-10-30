@@ -1,8 +1,20 @@
-import { type Db, legs, orders, users, vaultNumbers, vaultSnapshots, vaults } from '@colosseum/db';
+import {
+  baskets,
+  type Db,
+  legs,
+  orders,
+  proposals,
+  users,
+  vaultNumbers,
+  vaultSnapshots,
+  vaults,
+} from '@colosseum/db';
 import {
   type Address,
+  BasketProposal,
   chainFamily,
   type EnvLike,
+  type LeaderboardGoal,
   type LeaderboardHolding,
   type LeaderboardPnl,
   type LeaderboardRow,
@@ -185,6 +197,57 @@ async function takenOutOf(
 }
 
 /**
+ * The goal each vault was opened for, by address, as the board names the vault (gate LEADERBOARD,
+ * amended by Thom, Oct 30): the five structured fields of its plan's sheet and nothing else. Not the
+ * name its owner typed, not its number, no text of the plan or its conversation. Only where the plan is
+ * the owner's to read, by the rule `plansOf` answers a plan's goal by (orders/plan-join.ts): its maker
+ * is the person whose vault it opened, or it was made from a link; and only while the stored plan still
+ * reads whole as a `BasketProposal`. One query for every listed vault.
+ */
+export async function goalsOf(
+  db: Db,
+  entry: Pick<ChainEntry, 'chain' | 'provenance'>,
+  addresses: readonly string[],
+): Promise<Map<string, LeaderboardGoal>> {
+  if (addresses.length === 0) return new Map();
+  const rows = await db
+    .select({
+      address: vaults.address,
+      heldBy: baskets.userId,
+      madeBy: proposals.userId,
+      fromLink: proposals.fromLink,
+      proposal: proposals.proposal,
+    })
+    .from(vaults)
+    .innerJoin(baskets, eq(baskets.id, vaults.basketId))
+    .innerJoin(proposals, eq(proposals.id, baskets.proposalId))
+    .where(
+      and(
+        eq(vaults.chainId, entry.chain),
+        eq(vaults.provenance, entry.provenance),
+        inArray(vaults.address, [...addresses]),
+        thisLife(vaults),
+      ),
+    );
+  const goals = new Map<string, LeaderboardGoal>();
+  for (const row of rows) {
+    const theirs = row.fromLink === true || (row.madeBy !== null && row.madeBy === row.heldBy);
+    if (!theirs) continue;
+    const plan = BasketProposal.safeParse(row.proposal);
+    if (!plan.success) continue;
+    const { goal, amountUsd, horizonMonths, horizonOpen, incomeTargetUsdMonthly } = plan.data.sheet;
+    goals.set(row.address, {
+      goal,
+      amountUsd,
+      horizonMonths,
+      ...(horizonOpen === undefined ? {} : { horizonOpen }),
+      ...(incomeTargetUsdMonthly === undefined ? {} : { incomeTargetUsdMonthly }),
+    });
+  }
+  return goals;
+}
+
+/**
  * Every open vault the server knows on the chain, each with what it made, ranked. A vault is known as
  * the platform's numbers count one (GET /v1/stats): named by the vault cache, or read by the snapshot
  * worker in the last week; and under the label the chain's figures carry here.
@@ -295,12 +358,17 @@ export async function leaderboardOf(
     }),
   );
   const putIn = new Map(putIns.flatMap((m) => [...m]));
-  const [taken, families] = await Promise.all([
+  const [taken, families, goals] = await Promise.all([
     takenOutOf(db, entry, new Map(known.map((v) => [v.address, v.owner])), countsFrom),
     familiesOf(
       db,
       chain,
       newest.flatMap((s) => (s.recipeOnchainId ? [s.recipeOnchainId] : [])),
+    ),
+    goalsOf(
+      db,
+      entry,
+      known.map((v) => v.address),
     ),
   ]);
 
@@ -342,6 +410,7 @@ export async function leaderboardOf(
       pnl,
       noPnl: pnl ? null : value ? 'no_deposit_record' : 'never_read',
       follows: family ? { name: family.name, slug: family.slug } : null,
+      goal: goals.get(vault.address) ?? null,
     };
   });
   // In a window, a vault is the event's by its first deposit made in this app: the deposits `putInOf`

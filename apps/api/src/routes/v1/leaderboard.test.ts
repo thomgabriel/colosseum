@@ -1,12 +1,27 @@
 import { randomUUID } from 'node:crypto';
 import { mockAddress, mockCashId } from '@colosseum/chain-mock';
-import { indexFamilies, legs, orders, users, vaultLifetimes, vaultNumbers } from '@colosseum/db';
-import { DISCLAIMER, type IntentRequest, LeaderboardResponse } from '@colosseum/schemas';
+import {
+  baskets,
+  indexFamilies,
+  legs,
+  orders,
+  proposals,
+  users,
+  vaultLifetimes,
+  vaultNumbers,
+  vaults,
+} from '@colosseum/db';
+import {
+  type BasketProposal,
+  DISCLAIMER,
+  type IntentRequest,
+  LeaderboardResponse,
+} from '@colosseum/schemas';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { LEADERBOARD_PNL_METHOD, LEADERBOARD_RULE, shortOwner } from '../../portfolio/leaderboard';
-import { type Person, testApp, testDb } from '../../testing/harness';
+import { type Person, planFixture, testApp, testDb } from '../../testing/harness';
 import { seedSnapshot, seedVault, vaultAddress } from '../../testing/portfolio-world';
 import { LEADERBOARD_KEPT_MS } from './leaderboard';
 
@@ -320,6 +335,7 @@ describe('GET /v1/leaderboard', () => {
         'address',
         'chain',
         'follows',
+        'goal',
         'holdings',
         'noPnl',
         'owner',
@@ -327,6 +343,83 @@ describe('GET /v1/leaderboard', () => {
         'rank',
         'value',
       ]);
+  });
+
+  it('names a vault by its plan’s goal, its five structured fields and nothing else', async () => {
+    const a = await someone();
+    const b = await someone();
+    const c = await someone();
+    // A plan of a's own, with text in it that must not leave: the card's words and a line's reason.
+    const secret = `Maria Souza college fund ${randomUUID()}`;
+    const fixture = planFixture('solana');
+    const plan = {
+      ...fixture,
+      sheet: {
+        ...fixture.sheet,
+        goal: 'income' as const,
+        amountUsd: 2500,
+        horizonOpen: true,
+        incomeTargetUsdMonthly: 20,
+      },
+      card: { ...fixture.card, exit: { text: secret, costBps: null } },
+    };
+    /** A plan stored as `made` says, and the vault of `holder` joined to it. */
+    const joined = async (
+      holder: Someone,
+      made: { by?: Someone; fromLink?: boolean; stored?: BasketProposal },
+      number: string,
+    ) => {
+      const planId = await data.storePlan({
+        ...(made.stored ?? plan),
+        inputsHash: `leaderboard-test:${randomUUID()}`,
+      });
+      await data.db
+        .update(proposals)
+        .set({ userId: made.by?.userId ?? null, fromLink: made.fromLink ?? false })
+        .where(eq(proposals.id, planId));
+      const [basket] = await data.db
+        .insert(baskets)
+        .values({ userId: holder.userId, kind: 'personal', proposalId: planId })
+        .returning({ id: baskets.id });
+      if (!basket) throw new Error('basket insert');
+      const vault = await vaultOf(holder, { number, name: secret });
+      await data.db.update(vaults).set({ basketId: basket.id }).where(eq(vaults.address, vault));
+      await deposit(holder, number, 100);
+      await snapshot(holder, vault, number, 100, 10);
+      return vault;
+    };
+    const own = await joined(a, { by: a }, '21');
+    // b holds a vault opened for a plan c made: what that plan says is c's, not b's to show
+    const others = await joined(b, { by: c }, '22');
+    // a plan made from a link is anybody's who holds its id, whoever made it
+    const fromLink = await joined(b, { by: c, fromLink: true }, '24');
+    // a plan that names nobody and is not from a link: held, and not said
+    const nobodys = await joined(b, {}, '25');
+    // a plan of the owner's own that no longer reads says nothing, not a part of itself
+    const unreadable = await joined(
+      a,
+      { by: a, stored: { ...plan, lines: 'no longer lines' } as unknown as BasketProposal },
+      '26',
+    );
+    // and a vault no plan is joined to
+    const none = await vaultOf(c, { number: '23' });
+    await deposit(c, '23', 100);
+    await snapshot(c, none, '23', 100, 10);
+
+    const { answer, body } = await read();
+    expect(rowAt(answer, own)?.goal).toEqual({
+      goal: 'income',
+      amountUsd: 2500,
+      horizonMonths: 60,
+      horizonOpen: true,
+      incomeTargetUsdMonthly: 20,
+    });
+    expect(rowAt(answer, fromLink)?.goal).toEqual(rowAt(answer, own)?.goal);
+    expect(rowAt(answer, others)?.goal).toBeNull();
+    expect(rowAt(answer, nobodys)?.goal).toBeNull();
+    expect(rowAt(answer, unreadable)?.goal).toBeNull();
+    expect(rowAt(answer, none)?.goal).toBeNull();
+    expect(body).not.toContain(secret);
   });
 
   it('keeps an answer for a minute', async () => {

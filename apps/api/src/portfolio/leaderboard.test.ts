@@ -46,6 +46,7 @@ function row(
       : null,
     noPnl: made ? null : valueUsd === null ? 'never_read' : 'no_deposit_record',
     follows: null,
+    goal: null,
   };
 }
 
