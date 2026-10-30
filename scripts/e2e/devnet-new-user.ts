@@ -49,6 +49,8 @@ const KEY_FILE =
   process.env.E2E_FAUCET_KEY_FILE ??
   join(homedir(), 'Documents/worlds-fair-hackathon/testnet-keys/solana-devnet-faucet.json');
 const AMOUNT = Number(process.env.E2E_AMOUNT_USD ?? 5000);
+/** The longest the snapshot worker may take for one pass before the run counts it failed. */
+const WORKER_MS = 180_000;
 const HOLDINGS = [
   { assetId: 'solana:nvdax', weightBps: 3350 },
   { assetId: 'solana:tslax', weightBps: 3350 },
@@ -57,7 +59,8 @@ const HOLDINGS = [
 
 if (!DEVNET.toLowerCase().includes('devnet'))
   throw new Error('DEVNET_RPC_URL does not name devnet');
-if (!/@(localhost|127\.0\.0\.1):/.test(DB_URL)) throw new Error('E2E_DATABASE_URL must be local');
+if (!['localhost', '127.0.0.1'].includes(new URL(DB_URL).hostname))
+  throw new Error('E2E_DATABASE_URL must be local');
 
 const started = Date.now();
 const results: { step: string; ok: boolean; ms: number; note: string }[] = [];
@@ -307,7 +310,8 @@ try {
   const after = await balances(owner, cashMint);
   record(
     'wallet paid the deposit and the fees',
-    after.usd < held.usd,
+    // The deposit leaves the wallet whole: what is left is at most what was held less the amount.
+    after.usd <= held.usd - AMOUNT,
     `${after.sol} SOL, $${after.usd} left`,
   );
 
@@ -345,10 +349,17 @@ try {
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    // A node that never answers fails the run instead of hanging it.
+    const timer = setTimeout(() => child.kill('SIGKILL'), WORKER_MS);
+    child.on('error', () => {
+      clearTimeout(timer);
+      resolve(1);
+    });
     let out = '';
     child.stdout.on('data', (d) => (out += d));
     child.stderr.on('data', (d) => (out += d));
     child.on('close', (code) => {
+      clearTimeout(timer);
       const mine = out
         .split('\n')
         .filter((l) => l.includes(owner.slice(0, 8)) || /pass|fail/i.test(l));
