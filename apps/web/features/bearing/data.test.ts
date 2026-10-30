@@ -65,31 +65,6 @@ describe('the reader of the risk API', () => {
   });
 });
 
-describe('answers the server read for the page', () => {
-  it('are kept as if read here: a seeded route is not asked again', async () => {
-    const fetcher = vi.fn(() => answer(200, { fresh: 1 }));
-    const r = makeReader('http://api', fetcher as unknown as typeof fetch);
-    r.seed?.([{ path: '/risk/assets?tau=0.01', status: 200, body: { seeded: 1 } }]);
-    const got = await r.get('/risk/assets?tau=0.01');
-    expect(got.ok && got.body).toEqual({ seeded: 1 });
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-
-  it('never replace a route the reader has, and a failure seeded is asked for again', async () => {
-    const fetcher = vi.fn(() => answer(200, { fresh: 1 }));
-    const r = makeReader('http://api', fetcher as unknown as typeof fetch);
-    await r.get('/risk/chains?tau=0.01');
-    r.seed?.([
-      { path: '/risk/chains?tau=0.01', status: 200, body: { seeded: 1 } },
-      { path: '/risk/pools', status: 503, body: { error: 'busy' } },
-    ]);
-    const kept = await r.get('/risk/chains?tau=0.01');
-    expect(kept.ok && kept.body).toEqual({ fresh: 1 });
-    expect((await r.get('/risk/pools')).ok).toBe(true);
-    expect(fetcher).toHaveBeenCalledTimes(2);
-  });
-});
-
 describe('the reader on a slow API', () => {
   afterEach(() => vi.useRealTimers());
 

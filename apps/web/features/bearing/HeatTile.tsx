@@ -3,7 +3,7 @@ import { HeatmapTile } from '../../components/ui/HeatmapTile';
 import type { HeatCell } from '../../components/ui/heatmap';
 import { useAnswer, useBearing } from './BearingProvider';
 import { readKey } from './chain';
-import { HEAT_SIZE, R } from './data';
+import { R } from './data';
 import { type Fact, maxT, mk } from './fact';
 import { iso, REGIMES } from './format';
 import { Fig, Reason, useFmt, useWords } from './parts';
@@ -15,10 +15,9 @@ import type { AssetRow, HeatmapBody } from './types';
 // depth. The route gives no measurement time, so each figure takes the asset's newest capacity
 // reading, the snapshots it is drawn from; the method says so.
 
-// HEAT_SIZE (data.ts): the hourly medians are kept at the cost curve's grid sizes only; $50,000 is the
-// one nearest the pages' $100,000 on a log scale, as in the first view, and the size the old
-// /risk/<asset> page used.
-export { HEAT_SIZE };
+/** The hourly medians are kept at the cost curve's grid sizes only; $50,000 is the one nearest the
+ *  pages' $100,000 on a log scale, as in the first view, and the size the old /risk/<asset> page used. */
+export const HEAT_SIZE = 50_000;
 
 export function HeatTile({ asset }: { asset: AssetRow }) {
   const fm = useFmt();

@@ -458,8 +458,6 @@ for (const width of WIDTHS) {
       for (const id of ['stocks', 'lending', 'stablecoins', 'simulation'] as const)
         test(`Bearing’s ${id} waits in the page’s own boxes${named}`, async ({ page }) => {
           await page.clock.setFixedTime(Date.parse(clock));
-          // The wait of a page that arrived with none of its first reads: its server's reads failed.
-          await page.request.post(`${STUB}/__stub/risk-server-down`, { data: { down: true } });
           await waitsInPlace(page, {
             name: `analytics-${id}-${when}`,
             width,

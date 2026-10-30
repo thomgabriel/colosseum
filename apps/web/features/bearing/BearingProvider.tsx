@@ -18,7 +18,7 @@ import {
   rememberBearingChain,
   withChain,
 } from './chain';
-import { gate, inPool, makeReader, notKept, R, type Reader, type Res, resOf, TAU } from './data';
+import { gate, inPool, makeReader, notKept, R, type Reader, type Res, resOf } from './data';
 import type { DexAsset } from './dex';
 import { type Clock, maxT, STALE_AFTER_MS } from './fact';
 import { REGIMES } from './format';
@@ -41,7 +41,7 @@ import type {
 // stale, and what the person chose on each page (filters, metric, range, tolerance, the sale they
 // simulated). It lives in the section's layout, so it outlives a page.
 
-export { TAU };
+export const TAU = 0.01;
 /**
  * Assets asked in one `GET /risk/dex`, and how many of those answers are read at once: fewer than the
  * reader's `READS_AT_ONCE`, so the page's other reads are not queued behind every batch.

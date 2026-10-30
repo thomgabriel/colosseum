@@ -29,11 +29,6 @@ const notServed = (status: number, body: unknown) =>
  */
 export const notKept = (r: Res) => !r.ok && (r.status === 0 || r.status >= 500);
 
-/** The tolerance the pages first read at: a sale's cost at most 1%. */
-export const TAU = 0.01;
-/** The sale the hours-of-the-week tile is read at (HeatTile.tsx says why). */
-export const HEAT_SIZE = 50_000;
-
 /** How long one probe of the API waits, and how many it makes before saying the API did not answer. */
 const PROBE_MS = 3000;
 const PROBE_TRIES = 3;
@@ -67,15 +62,7 @@ export type Reader = {
    * gives back the way to stop. A reader of a stub may leave it out.
    */
   onAnswer?: (heard: () => void) => () => void;
-  /**
-   * Keeps answers the server already read for this page (server-seed.ts), as if this reader had read
-   * them: a path it has, or is reading, keeps its own. A reader of a stub may leave it out.
-   */
-  seed?: (answers: readonly SeedAnswer[]) => void;
 };
-
-/** An answer of the risk API read on the server, handed to the page with its HTML. */
-export type SeedAnswer = { path: string; status: number; body: unknown };
 
 /** An answer as the pages read it: its body when the API answered 2xx, else the reason it did not. */
 export function resOf(status: number, body: unknown): Res {
@@ -153,14 +140,7 @@ export function makeReader(base: string = RISK_API, fetcher: typeof fetch = fetc
       listeners.delete(heard);
     };
   };
-  const seed = (answers: readonly SeedAnswer[]) => {
-    for (const a of answers) {
-      if (cache.has(a.path)) continue;
-      const r = resOf(a.status, a.body);
-      if (!notKept(r)) cache.set(a.path, Promise.resolve(r));
-    }
-  };
-  return { get, probe, onAnswer, seed };
+  return { get, probe, onAnswer };
 }
 
 /**
