@@ -160,6 +160,8 @@ let tamperNext = false;
 let closed = new Map<string, string>();
 /** The funding answers as a test network's, and the test faucet sends (POST /__stub/test-network). */
 let testNetwork = false;
+/** `/risk/*` refuses the web server's own reads, so a page arrives with none (POST /__stub/risk-server-down). */
+let riskServerDown = false;
 /** `GET /v1/config` says the server lists live portfolios only (POST /__stub/live-only). */
 let liveOnly = false;
 /** The plan an agent proposed from a link (`POST /v1/baskets/propose`), read back by its id. */
@@ -1172,6 +1174,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     tamperNext = false;
     testNetwork = false;
     liveOnly = false;
+    riskServerDown = false;
     reports = [];
     linked = null;
     built = null;
@@ -1248,6 +1251,14 @@ async function route(req: IncomingMessage, res: ServerResponse) {
         await adapter.mock.send(tx);
     return send(res, 200, { address: source.address });
   }
+  if (path === '/__stub/risk-server-down' && method === 'POST') {
+    const body = (await read(req)) as { down?: boolean };
+    riskServerDown = body.down !== false;
+    return send(res, 200, { down: riskServerDown });
+  }
+  // The server's own read has no Origin; the browser's, from another port, has one.
+  if (riskServerDown && path.startsWith('/risk/') && !req.headers.origin)
+    return send(res, 503, { error: 'down for the server' });
   if (path.startsWith('/risk/') && method === 'GET') {
     const answer = riskAnswer(`${path}${url.search}`);
     return send(res, answer.status, answer.body);

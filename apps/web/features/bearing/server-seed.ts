@@ -10,12 +10,16 @@ import type { AssetsBody } from './types';
 // The first reads of a Bearing page, made on the server while its HTML is made, so the page arrives
 // with them and shows its figures once it hydrates, instead of asking the risk API only then. The same
 // paths the page asks (data.ts `R`): the browser's reader keeps them (`seed`) and asks for nothing it
-// already has. Each read is kept a minute by Next's data cache, as the API itself says an answer may be
-// kept, so the host is asked once a minute per address however many people open the page.
+// already has, for the life of the page. So each is read fresh, as the browser would read it: Next's data
+// cache would hand the first visitor after a gap an answer of any age (patch-fetch.js), and the banner
+// would call the readings stale all visit. The API keeps its own answers (risk-cache.ts), so the host
+// works no harder than for a browser's read.
 //
 // Never in the way: what is not read within `SEED_WAIT_MS` is left to the browser, as before; an
 // answer that fails is not handed on; and what is too large to ride in the HTML is left to the browser's
-// own read: a stock list's pools (about 2 MB a batch) and each lending pool's sheet (about 170 kB, 14 pools).
+// own read. Left to it as well: `GET /risk/dex`, a healthy batch is too large and it answers 200 with
+// failures inside, which the reader would keep; each lending pool's sheet (about 170 kB, 14 pools); and a
+// recoverable value, which the API does not keep.
 
 /** How long the page waits for its first reads before it is sent without the rest. */
 export const SEED_WAIT_MS = 800;
@@ -25,8 +29,6 @@ export const SEED_MAX_CHARS = 120_000;
 export const SEED_TOTAL_CHARS = 600_000;
 /** Reads out at once from the server. */
 const SEED_AT_ONCE = 8;
-/** As GET /risk/* says an answer may be kept (risk-cache.ts RISK_CACHE_CONTROL). */
-const KEPT_S = 60;
 
 /** The sale the simulation opens on (BearingProvider's first `ui.sim`). */
 export const SIM_FIRST = { asset: 'TSLAx', size: 100_000 };
@@ -40,10 +42,7 @@ async function readOne(
   signal: AbortSignal,
 ): Promise<SeedAnswer | null> {
   try {
-    const r = await fetcher(`${RISK_API}${path}`, {
-      signal,
-      next: { revalidate: KEPT_S },
-    } as RequestInit);
+    const r = await fetcher(`${RISK_API}${path}`, { signal, cache: 'no-store' });
     const text = await r.text();
     if (r.status < 200 || r.status >= 300 || text.length > SEED_MAX_CHARS) return null;
     return { path, status: r.status, body: JSON.parse(text) };
@@ -104,17 +103,15 @@ export async function seedFor(
       const body = assets.body;
       const byId = new Map(body.assets.map((a) => [a.symbol, a]));
       if (page === 'commodities')
-        for (const id of dexIds(body, 'commodities')) {
-          const key = readKey(byId.get(id), id);
-          then.push(R.dex([key], 100_000, chain), R.heatmap(key, HEAT_SIZE));
-        }
+        for (const id of dexIds(body, 'commodities'))
+          then.push(R.heatmap(readKey(byId.get(id), id), HEAT_SIZE));
       if (page === 'simulation') {
         const a = byId.get(SIM_FIRST.asset);
         if (a) {
           const key = readKey(a, a.symbol);
           const n = SIM_FIRST.size;
           const chunks = chunksFor(n, capFact(a, regimeAt(now), body));
-          then.push(R.sheet(key, n), R.recov(key, n), R.split(key, n));
+          then.push(R.sheet(key, n), R.split(key, n));
           if (chunks) then.push(R.sheet(key, n / chunks), R.split(key, n / chunks));
         }
       }

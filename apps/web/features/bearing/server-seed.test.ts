@@ -54,27 +54,31 @@ describe('the first reads of an analytics page, on the server', () => {
     if (API) expect(fetcher).toHaveBeenCalledWith(expect.stringContaining(API), expect.anything());
   });
 
-  it('reads gold’s answer and its hours on the commodities page, and the first sale on the simulation', async () => {
-    const { fetcher } = api({
+  it('reads every answer fresh: Next’s data cache would hand on one of any age', async () => {
+    const { fetcher } = api({ [R.assets(TAU)]: { body: assets } });
+    await seedFor('stocks', 'solana', fetcher);
+    for (const [, init] of vi.mocked(fetcher).mock.calls) {
+      expect(init?.cache).toBe('no-store');
+      expect(init).not.toHaveProperty('next');
+    }
+  });
+
+  it('reads gold’s hours on the commodities page and the first sale on the simulation, and leaves to the browser what must not ride the HTML', async () => {
+    const { fetcher, asked } = api({
       [R.assets(TAU)]: { body: assets },
-      [R.dex(['GLDx'], 100_000)]: { body: { assets: [] } },
       [R.heatmap('GLDx', 50_000)]: { body: { cells: [] } },
       [R.sheet('TSLAx', 100_000)]: { body: {} },
-      [R.recov('TSLAx', 100_000)]: { body: {} },
       [R.split('TSLAx', 100_000)]: { body: {} },
     });
     const gold = (await seedFor('commodities', 'solana', fetcher)).map((a) => a.path);
-    expect(gold).toEqual(
-      expect.arrayContaining([R.dex(['GLDx'], 100_000), R.heatmap('GLDx', 50_000)]),
-    );
+    expect(gold).toEqual(expect.arrayContaining([R.heatmap('GLDx', 50_000)]));
     const sim = (await seedFor('simulation', 'solana', fetcher)).map((a) => a.path);
     expect(sim).toEqual(
-      expect.arrayContaining([
-        R.sheet('TSLAx', 100_000),
-        R.recov('TSLAx', 100_000),
-        R.split('TSLAx', 100_000),
-      ]),
+      expect.arrayContaining([R.sheet('TSLAx', 100_000), R.split('TSLAx', 100_000)]),
     );
+    // a batch answers 200 with failures inside, and the API does not keep a recoverable value
+    expect(asked.some((p) => p.startsWith('/risk/dex'))).toBe(false);
+    expect(asked.some((p) => p.startsWith('/risk/recoverable'))).toBe(false);
   });
 
   it('hands on nothing that failed, nothing too large, and stops waiting after its time', async () => {
