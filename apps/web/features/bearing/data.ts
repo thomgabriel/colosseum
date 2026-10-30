@@ -32,8 +32,9 @@ export const notKept = (r: Res) => !r.ok && (r.status === 0 || r.status >= 500);
 /** How long one probe of the API waits, and how many it makes before saying the API did not answer. */
 const PROBE_MS = 3000;
 const PROBE_TRIES = 3;
-/** Reads of the risk API out at once, from one page. The probe is not one of them. */
-export const READS_AT_ONCE = 3;
+/** Reads of the risk API out at once, from one page; the probe is not one of them. Six: the API keeps
+ *  its answers (risk-cache.ts), so most are a kept answer, and a page of three at a time waited on itself. */
+export const READS_AT_ONCE = 6;
 /** The longest a read holds its place: past it, it is given up as no answer and the next read goes. */
 export const READ_MS = 30_000;
 
@@ -202,6 +203,8 @@ export const R = {
   sheet: (asset: string, n: number) => `/risk/facts/assets/${enc(asset)}?sizeUsd=${size(n)}`,
   hist: (asset: string, tau: number) => `/risk/assets/${enc(asset)}/history?days=30&tau=${tau}`,
   lendList: () => '/risk/facts/lending',
+  /** Every lending pool's sheet and histories in one answer (`GET /risk/lending`). */
+  lendAll: () => '/risk/lending',
   lend: (account: string) => `/risk/facts/lending/${enc(account)}`,
   lendH: (account: string, days: number) =>
     `/risk/facts/lending/${enc(account)}/history?days=${days}`,
