@@ -56,6 +56,8 @@ export function DepositSign({
   onOrder,
   foot,
   onQuoting,
+  faucetAbove = false,
+  readAgain,
 }: {
   chain: ChainId;
   planId: string;
@@ -81,6 +83,10 @@ export function DepositSign({
   foot?: HTMLElement | null;
   /** An order is being made for the card now, or no longer is. */
   onQuoting?: (quoting: boolean) => void;
+  /** The host's card has the faucet at its top (gate FAUCET-TOP): no second one here. */
+  faucetAbove?: boolean;
+  /** Changed by the host when test funds arrived: the wallet is read again. */
+  readAgain?: number;
 }) {
   const t = useT();
   const lang = useLang();
@@ -182,6 +188,8 @@ export function DepositSign({
           {...(onOrder ? { onOrder } : {})}
           {...(foot ? { foot } : {})}
           {...(onQuoting ? { onQuoting } : {})}
+          {...(faucetAbove ? { faucetAbove: true } : {})}
+          {...(readAgain !== undefined ? { readAgain } : {})}
           {...(resume ? { resumeOrder: resume.orderId } : {})}
           onProgress={(progress) => {
             // The first word is the press itself: from here the deposit is kept, and the box is held.

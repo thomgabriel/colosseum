@@ -59,12 +59,14 @@ export function useWalletBalance(
   owner: string | null,
   chain: ChainId,
   mock: boolean,
+  /** Changed by the caller when the wallet changed (test funds arrived): read again. */
+  round = 0,
 ): WalletBalance {
   const apiFetch = useApiFetch();
   const [balance, setBalance] = useState<WalletBalance>({ kind: 'idle' });
-  const key = buyOf && owner ? JSON.stringify([buyOf, owner]) : null;
+  const key = buyOf && owner ? JSON.stringify([buyOf, owner, round]) : null;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for what is bought and the wallet
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for what is bought, the wallet and the round
   useEffect(() => {
     if (!buyOf || !owner) return setBalance({ kind: 'idle' });
     let mine = true;

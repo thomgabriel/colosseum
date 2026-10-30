@@ -1265,6 +1265,9 @@ export const en = {
       and: (a: string, b: string) => `${a} and ${b}`,
       details: 'Show the details',
       testFunds: 'Get test funds',
+      /** The faucet at the top of the deposit card, before any amount (gate FAUCET-TOP). */
+      testFundsUpTo: (amount: string) => `Get ${amount} test funds`,
+      testTop: 'This is a test network. Get test dollars and a little gas to try a deposit.',
       testFunding: 'Sending test funds…',
       testNote: 'Test tokens have no value. They exist only on the test network.',
       testSent: (list: string) => `I sent ${list} to your wallet on the test network.`,
@@ -2922,7 +2925,6 @@ export const en = {
             : `${n} holdings above what they can sell as planned`,
         tier: (n: number) => (n === 1 ? '1 by tier, not measured' : `${n} by tier, not measured`),
       },
-      limits: 'From $1 to $1,000,000.',
       mix: 'What your vault will hold',
       edited: 'Edited by hand',
       share: 'Share',

@@ -134,6 +134,22 @@ describe('POST /v1/testnet/fund', () => {
     expect(res.body).not.toMatch(/https?:|key/i);
   });
 
+  it('tops a wallet up before anything is chosen: a new vault’s deposit on the person’s chain (FAUCET-TOP)', async () => {
+    const a = await someone();
+    const res = await post(a, '/v1/testnet/fund', { amountUsd: 9_900 });
+    expect(res.statusCode, res.body).toBe(200);
+    const answer = TestFundsResponse.parse(res.json());
+    expect(answer.wallet).toBe(a.solana);
+    expect(sent.at(-1)?.to).toBe(a.solana);
+    // The whole amount in the chain's dollar, with its 1% margin: within one send of $10,000.
+    const cash = 9_900n * 10n ** BigInt(answer.cash.decimals);
+    expect(sent.at(-1)?.cashRaw).toBe(cash + (cash + 99n) / 100n);
+    // and the gas a new vault of a few holdings needs
+    expect(sent.at(-1)?.gasRaw).toBeGreaterThan(0n);
+    // A funding read still names a buy with its amount, or neither: the top-up is the faucet's alone.
+    expect((await get(a, '/v1/funding?amountUsd=9900')).statusCode).toBe(400);
+  });
+
   it('refuses a wallet that is not the person’s, and a body that names an amount to send', async () => {
     const a = await someone();
     const other = await someone();

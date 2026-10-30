@@ -28,6 +28,7 @@ import {
   readFunding,
   requestTestFunds,
   TEST_SEND,
+  TEST_SEND_COVERS,
   type TestFundsOutcome,
 } from './order-api';
 import { acceptTrust, forgetUnapproved, trustAccepted } from './order-record';
@@ -147,6 +148,13 @@ export type InvestCardProps = {
   foot?: HTMLElement;
   /** An order is being made for the card now (its quotes are on the way), or no longer is. */
   onQuoting?: (quoting: boolean) => void;
+  /**
+   * The host's card has the faucet at its top (gate FAUCET-TOP): the funds step here says what is
+   * missing with no test-funds button of its own.
+   */
+  faucetAbove?: boolean;
+  /** Changed by the host when the wallet changed under the card (test funds sent above): read again. */
+  readAgain?: number;
 };
 
 /** What a host that mounts a buy inside its own screen passes: the amount, and what it is told. */
@@ -165,6 +173,8 @@ export type InvestEmbedded = Pick<
   | 'onOrder'
   | 'foot'
   | 'onQuoting'
+  | 'faucetAbove'
+  | 'readAgain'
 > & {
   /** The id of an order approved on this card before it was lost: the card takes it up again. */
   resumeOrder?: string;
@@ -205,6 +215,8 @@ export function InvestCard({
   onOrder,
   foot,
   onQuoting,
+  faucetAbove = false,
+  readAgain = 0,
 }: InvestCardProps) {
   const t = useT();
   const lang = useLang();
@@ -257,7 +269,7 @@ export function InvestCard({
 
   // What the wallet is missing for this amount, read again a moment after the amount stops changing.
   // Only the latest read is shown. Not read again once the person has pressed: the order spends it.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `fundsRound` reads the wallet again, and `buyKey` stands for what is bought
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `fundsRound` and `readAgain` read the wallet again, and `buyKey` stands for what is bought
   useEffect(() => {
     if (started) return;
     if (!owner || amount === null) {
@@ -276,7 +288,7 @@ export function InvestCard({
       if (fundsAsked.current === mine) setFunding(read);
     }, 300);
     return () => clearTimeout(timer);
-  }, [owner, amount, apiFetch, fundsRound, buyKey, started]);
+  }, [owner, amount, apiFetch, fundsRound, readAgain, buyKey, started]);
 
   const read = funding.kind === 'read' ? funding.funding : null;
   // The wallet held what this buy needs when it was last read: kept while it is read again, so an
@@ -457,7 +469,7 @@ export function InvestCard({
   const haveUsd = read ? dollarsOf(read.cash.haveRaw) : null;
   const missingUsd = read ? dollarsOf(read.cash.missingRaw) : null;
   // The most a send may be asked to cover, so that with the server's margin it stays within one send.
-  const sendCovers = Math.floor((TEST_SEND.maxUsd * 10_000) / (10_000 + TEST_SEND.marginBps));
+  const sendCovers = TEST_SEND_COVERS;
   // Short by more than one send of test funds gives, where our server sends them: asking for the
   // whole amount would only be refused, so the card says what a send gives and what else can be done.
   const beyondOneSend =
@@ -674,6 +686,7 @@ export function InvestCard({
             onReadAgain={() => setFundsRound((n) => n + 1)}
             onMock={addMock}
             testFunds={{ busy: testBusy, outcome: testOutcome, onAsk: askTestFunds }}
+            faucetAbove={faucetAbove}
             capped={
               beyondOneSend
                 ? {

@@ -345,6 +345,11 @@ export async function fundMock(
  */
 export const TEST_SEND = { maxUsd: 10_000, perDay: 3, marginBps: 100 } as const;
 
+/** The most a send may be asked to cover, so that with the server's margin it stays within one send. */
+export const TEST_SEND_COVERS = Math.floor(
+  (TEST_SEND.maxUsd * 10_000) / (10_000 + TEST_SEND.marginBps),
+);
+
 export type TestFundsOutcome =
   | { kind: 'sent'; sent: TestFundsResponse }
   /** 429: the person, or the faucet, has had its sends for the day. */
@@ -362,11 +367,12 @@ export type TestFundsOutcome =
 
 /**
  * Test network only: POST /v1/testnet/fund asks the server to send the wallet what this buy is missing.
- * The server works out the amounts itself; nothing here says how much.
+ * The server works out the amounts itself; nothing here says how much. With no buy named, a top-up on
+ * the person's current chain: what a deposit of the amount into a new vault needs (gate FAUCET-TOP).
  */
 export async function requestTestFunds(
   apiFetch: ApiFetch,
-  ask: BuyOf & { amountUsd: number; wallet: string },
+  ask: (BuyOf | Record<never, never>) & { amountUsd: number; wallet: string },
 ): Promise<TestFundsOutcome> {
   let res: Response;
   try {

@@ -131,7 +131,9 @@ export type FundingResponse = z.infer<typeof FundingResponse>;
 /**
  * POST /v1/testnet/fund: send the signed-in wallet what it is missing for this buy, on a test network
  * only. The same buy as GET /v1/funding names: the server works out what is missing itself, and sends
- * that with a small margin, never an amount the request states.
+ * that with a small margin, never an amount the request states. Naming none of a plan, a shared
+ * portfolio and a vault is a top-up on the person's current chain, before anything is chosen: what a
+ * deposit of `amountUsd` into a new vault would need (gate FAUCET-TOP).
  */
 export const TestFundsRequest = z
   .strictObject({
@@ -148,8 +150,8 @@ export const TestFundsRequest = z
     vault: FundingQuery.shape.vault,
     vaultChain: FundingQuery.shape.vaultChain,
   })
-  .refine((q) => [q.proposalId, q.family, q.vault].filter((x) => x !== undefined).length === 1, {
-    message: 'send proposalId, family or vault, one of them',
+  .refine((q) => [q.proposalId, q.family, q.vault].filter((x) => x !== undefined).length <= 1, {
+    message: 'send at most one of proposalId, family and vault; none tops the wallet up',
   })
   .refine((q) => (q.vault === undefined) === (q.vaultChain === undefined), {
     message: 'send vault and vaultChain together',
