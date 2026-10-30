@@ -23,12 +23,13 @@ describe('what a funding read names', () => {
 });
 
 describe('what a test-funds send names', () => {
-  it('takes exactly one of a plan, a shared portfolio and a vault', () => {
+  it('takes at most one of a plan, a shared portfolio and a vault', () => {
     expect(TestFundsRequest.safeParse({ amountUsd: 50, proposalId: plan }).success).toBe(true);
     expect(
       TestFundsRequest.safeParse({ amountUsd: 50, vault, vaultChain: 'robinhood' }).success,
     ).toBe(true);
-    expect(TestFundsRequest.safeParse({ amountUsd: 50 }).success).toBe(false);
+    // none of them: a top-up on the person's current chain (FAUCET-TOP)
+    expect(TestFundsRequest.safeParse({ amountUsd: 50 }).success).toBe(true);
     expect(TestFundsRequest.safeParse({ amountUsd: 50, vault }).success).toBe(false);
     expect(
       TestFundsRequest.safeParse({

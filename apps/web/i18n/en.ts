@@ -1265,6 +1265,20 @@ export const en = {
       and: (a: string, b: string) => `${a} and ${b}`,
       details: 'Show the details',
       testFunds: 'Get test funds',
+      /** The faucet at the top of the deposit card, before any amount (gate FAUCET-TOP). */
+      testFundsUpTo: (amount: string) => `Get ${amount} test funds`,
+      testTop: 'This is a test network. Get test dollars and a little gas to try a deposit.',
+      /** Lower on the card, where the faucet is at its top: the way back to it (FAUCET-TOP). */
+      testAbove: 'Test funds come from the button at the top of this card.',
+      testAboveGo: 'Go to test funds',
+      /** At the top of the card, where there may be no amount or deposit yet, and no read-again. */
+      testFailureTop: {
+        tooMuch:
+          'That’s more than one send of test funds gives. Try again later, or fund the wallet yourself.',
+        refused: 'Our server didn’t send test funds. Try again in a moment.',
+        unreachable:
+          'The test network didn’t take the transfer, or our server didn’t answer. Check your balance below: part of it may have arrived.',
+      },
       testFunding: 'Sending test funds…',
       testNote: 'Test tokens have no value. They exist only on the test network.',
       testSent: (list: string) => `I sent ${list} to your wallet on the test network.`,
@@ -2922,7 +2936,6 @@ export const en = {
             : `${n} holdings above what they can sell as planned`,
         tier: (n: number) => (n === 1 ? '1 by tier, not measured' : `${n} by tier, not measured`),
       },
-      limits: 'From $1 to $1,000,000.',
       mix: 'What your vault will hold',
       edited: 'Edited by hand',
       share: 'Share',

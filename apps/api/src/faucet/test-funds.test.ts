@@ -203,6 +203,20 @@ describe('the test faucet', () => {
     expect(sender.send).toHaveBeenCalledTimes(TEST_FUNDS.perPerson);
   });
 
+  it('a vault of 16 holdings on Solana: over one send from empty, and its rest within one after a top-up (FAUCET-TOP)', async () => {
+    // Worked out from the adapter's sizes: 16 holdings need about 0.0481 SOL, a top-up leaves 0.0372.
+    const { funds, sent } = faucet();
+    const entry = entryOn('solana');
+    const empty = await refusal(
+      funds.send('user-1', entry, funding(entry, { cash: '0', gas: '48100000' })),
+    );
+    expect(empty.status).toBe(422);
+    expect(sent).toHaveLength(0);
+    await funds.send('user-1', entry, funding(entry, { cash: '0', gas: '10900000' }));
+    expect(sent[0]?.gasRaw).toBe(13_625_000n);
+    expect(sent[0]?.gasRaw).toBeLessThanOrEqual(TEST_FUNDS.maxGasRaw.solana ?? 0n);
+  });
+
   it('lets a person ask three times a day, then refuses until the day has passed', async () => {
     let at = new Date('2026-10-06T12:00:00Z').getTime();
     const entry = entryOn('solana');

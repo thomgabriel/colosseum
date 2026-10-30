@@ -32,6 +32,64 @@ type FundingRow = {
 
 export type TestFundsState = { busy: boolean; outcome: TestFundsOutcome | null; onAsk: () => void };
 
+/**
+ * What a send of test funds did, in words: what arrived, each token in its committed units, or why
+ * nothing did. Both null before any send. Shared by the funds step and the faucet at the top of the
+ * deposit card (gate FAUCET-TOP), so the two never word it differently.
+ */
+export function useTestFundsWords(
+  outcome: TestFundsOutcome | null,
+  cashUnits: TokenUnits | null,
+  gasUnits: TokenUnits | null,
+  /** Said at the top of the card, where there may be no amount or deposit yet (FAUCET-TOP). */
+  top = false,
+): { sent: string | null; failed: string | null } {
+  const t = useT();
+  const locale = LOCALE[useLang()];
+  const words = (raw: string, u: TokenUnits) => {
+    const figure = formatRaw(raw, u.decimals, locale);
+    return figure !== null ? `${figure} ${u.symbol}` : raw;
+  };
+  const sent =
+    outcome?.kind === 'sent'
+      ? t.buy.funding.testSent(
+          t.buy.funding.and(
+            words(
+              outcome.sent.cash.raw,
+              cashUnits ?? {
+                symbol: outcome.sent.cash.symbol,
+                decimals: outcome.sent.cash.decimals,
+              },
+            ),
+            words(
+              outcome.sent.gas.raw,
+              gasUnits ?? { symbol: outcome.sent.gas.symbol, decimals: outcome.sent.gas.decimals },
+            ),
+          ),
+        )
+      : null;
+  const failure = top
+    ? { ...t.buy.funding.testFailure, ...t.buy.funding.testFailureTop }
+    : t.buy.funding.testFailure;
+  const failed =
+    !outcome || outcome.kind === 'sent'
+      ? null
+      : outcome.kind === 'busy'
+        ? failure.busy
+        : outcome.kind === 'too-much'
+          ? failure.tooMuch
+          : outcome.kind === 'low'
+            ? outcome.of === 'gas'
+              ? failure.lowGas
+              : failure.lowCash
+            : outcome.kind === 'enough'
+              ? failure.enough
+              : outcome.kind === 'refused'
+                ? failure.refused
+                : failure.unreachable;
+  return { sent, failed };
+}
+
 export function FundingStep({
   funding,
   chainName,
@@ -44,6 +102,7 @@ export function FundingStep({
   onMock,
   testFunds,
   capped,
+  faucetAbove = false,
 }: {
   funding: Funding;
   chainName: string;
@@ -61,6 +120,11 @@ export function FundingStep({
    * the plain note, and the button says what it will send.
    */
   capped?: { note: string; label: string };
+  /**
+   * The faucet is at the top of the card that holds this step (gate FAUCET-TOP): this step says what
+   * is missing, reads again and points back up to it, with no button of test funds of its own.
+   */
+  faucetAbove?: boolean;
 }) {
   const t = useT();
   const lang = useLang();
@@ -121,43 +185,18 @@ export function FundingStep({
       };
     });
   // Test funds are offered where the server says it can send them, on a test network only.
-  const offered =
+  const canSend =
     read !== null && !read.ok && read.provenance === 'sandbox' && read.testFunds === true;
-  const outcome = testFunds.outcome;
-  const sent =
-    outcome?.kind === 'sent'
-      ? t.buy.funding.testSent(
-          t.buy.funding.and(
-            words(
-              outcome.sent.cash.raw,
-              cashUnits ?? {
-                symbol: outcome.sent.cash.symbol,
-                decimals: outcome.sent.cash.decimals,
-              },
-            ),
-            words(
-              outcome.sent.gas.raw,
-              gasUnits ?? { symbol: outcome.sent.gas.symbol, decimals: outcome.sent.gas.decimals },
-            ),
-          ),
-        )
-      : null;
-  const failed =
-    !outcome || outcome.kind === 'sent'
-      ? null
-      : outcome.kind === 'busy'
-        ? t.buy.funding.testFailure.busy
-        : outcome.kind === 'too-much'
-          ? t.buy.funding.testFailure.tooMuch
-          : outcome.kind === 'low'
-            ? outcome.of === 'gas'
-              ? t.buy.funding.testFailure.lowGas
-              : t.buy.funding.testFailure.lowCash
-            : outcome.kind === 'enough'
-              ? t.buy.funding.testFailure.enough
-              : outcome.kind === 'refused'
-                ? t.buy.funding.testFailure.refused
-                : t.buy.funding.testFailure.unreachable;
+  // Above, on the card that holds this step, where the faucet is at its top: one button, not two, and
+  // a way back to it for someone who has scrolled past it.
+  const offered = canSend && !faucetAbove;
+  const above = canSend && faucetAbove;
+  const toFaucet = () => {
+    const button = document.querySelector<HTMLElement>('[data-action="test-funds-top"]');
+    button?.scrollIntoView({ block: 'center' });
+    button?.focus();
+  };
+  const { sent, failed } = useTestFundsWords(testFunds.outcome, cashUnits, gasUnits);
 
   return (
     <div data-ui="funding-step" className="flex flex-col gap-4">
@@ -231,6 +270,21 @@ export function FundingStep({
             t.buy.funding.testNote
           )}
         </p>
+      )}
+      {above && (
+        <div data-ui="test-funds-above" className="flex flex-col items-start gap-1 text-body-sm">
+          {capped && (
+            <p data-ui="test-funds-cap" className="max-w-(--tf-measure-body) text-muted-foreground">
+              {capped.note}
+            </p>
+          )}
+          <p className="flex max-w-(--tf-measure-body) flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span>{t.buy.funding.testAbove}</span>
+            <Button variant="link" data-action="to-test-funds" onClick={toFaucet}>
+              {t.buy.funding.testAboveGo}
+            </Button>
+          </p>
+        </div>
       )}
       <div className="flex flex-wrap gap-3">
         {offered && (

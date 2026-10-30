@@ -838,7 +838,8 @@ describe('a new goal’s mix, deposited from one screen (gate DEPOSIT-ONE-SCREEN
       return json({ status: 'review', review: reviewOf(of(body)) });
     });
     const host = await goalMix();
-    expect(host.textContent).toContain(en.mix.deposit.limits);
+    // the range is not said under the field (Thom, Oct 30): the limits are said when one is crossed
+    expect(host.textContent).not.toContain('From $1 to $1,000,000');
     for (const [text, error] of [
       // the floor is $1 (gate DEPOSIT-FLOOR): a cent under it is refused, and $1 itself is checked
       ['0.99', en.mix.deposit.errors.belowMin],
